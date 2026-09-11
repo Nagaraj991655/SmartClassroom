@@ -64,6 +64,20 @@ CREATE TABLE students (
         ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 2b. STUDENT PASSWORD RESETS (OTP)
+CREATE TABLE IF NOT EXISTS student_password_resets (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email VARCHAR(150) NOT NULL,
+    std_id VARCHAR(20) NOT NULL,
+    otp_code VARCHAR(10) NOT NULL,
+    reset_token VARCHAR(100) NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    INDEX idx_student_resets_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- ============================================================
 -- 3. TEACHERS
@@ -80,21 +94,48 @@ CREATE TABLE teachers (
     UNIQUE KEY uq_teachers_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 3b. TEACHER PASSWORD RESETS (OTP)
+CREATE TABLE IF NOT EXISTS teacher_password_resets (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email VARCHAR(150) NOT NULL,
+    teach_id VARCHAR(20) NOT NULL,
+    otp_code VARCHAR(10) NOT NULL,
+    reset_token VARCHAR(100) NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    INDEX idx_teacher_resets_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- ============================================================
 -- 4. ADMINS
--- Admin login uses staff ID + password.
+-- Admin login uses email + password.
 -- ============================================================
 CREATE TABLE admins (
     admin_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    staff_id VARCHAR(20) NOT NULL,
+    username VARCHAR(50) NOT NULL,
     email VARCHAR(150) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (admin_id),
-    UNIQUE KEY uq_admins_staff_id (staff_id),
+    UNIQUE KEY uq_admins_username (username),
     UNIQUE KEY uq_admins_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4b. ADMIN PASSWORD RESETS (OTP)
+CREATE TABLE IF NOT EXISTS admin_password_resets (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email VARCHAR(150) NOT NULL,
+    otp_code VARCHAR(10) NOT NULL,
+    reset_token VARCHAR(100) NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    INDEX idx_admin_resets_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

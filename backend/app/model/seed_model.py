@@ -9,15 +9,30 @@ def run_seed():
     Seeds default admin, departments, and subjects if the database is newly initialized.
     """
     try:
+        # 0. Migration check: rename staff_id to username in admins table if present
+        try:
+            col_check = fetch_one("""
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'admins' 
+                  AND COLUMN_NAME = 'staff_id'
+            """)
+            if col_check:
+                execute_query("ALTER TABLE admins CHANGE COLUMN staff_id username VARCHAR(50) NOT NULL")
+                logger.info("Migrated admins table: column 'staff_id' renamed to 'username'")
+        except Exception as mig_err:
+            logger.warning(f"Admins table column migration notice: {mig_err}")
+
         # 1. Admin
         admin = fetch_one("SELECT * FROM admins LIMIT 1")
         if not admin:
             hashed = hash_password("admin123")
             execute_insert(
-                "INSERT INTO admins (staff_id, email, password_hash) VALUES (%s, %s, %s)",
-                ("ADM001", "admin@ucj.ac.lk", hashed)
+                "INSERT INTO admins (username, email, password_hash) VALUES (%s, %s, %s)",
+                ("admin", "admin@ucj.ac.lk", hashed)
             )
-            logger.info("Created default administrator: ADM001 / admin@ucj.ac.lk / admin123")
+            logger.info("Created default administrator: admin / admin@ucj.ac.lk / admin123")
 
         # 2. Departments
         dep_count = fetch_one("SELECT COUNT(*) AS c FROM departments")["c"]
