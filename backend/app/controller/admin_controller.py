@@ -8,8 +8,13 @@ from app.model.schemas import (
 from app.model.admin_model import (
     get_all_departments,
     create_department,
+    create_department_with_subjects,
+    update_department,
+    delete_department,
     get_all_subjects,
     create_subject,
+    update_subject,
+    delete_subject,
     link_department_subject,
     get_all_teachers,
     create_teacher,
@@ -24,10 +29,47 @@ def list_departments():
 
 def add_department(data: CreateDepartmentRequest):
     try:
-        dep_id = create_department(data.dep_name)
-        return {"message": "Department created successfully", "dep_id": dep_id}
+        subject_names = list(dict.fromkeys(
+            name.strip() for name in (data.subject_names or []) if name.strip()
+        ))
+        result = create_department_with_subjects(data.dep_name.strip(), subject_names)
+        return {
+            "message": (
+                "Department created successfully. "
+                f"{len(subject_names)} subject(s) linked."
+            ),
+            **result
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create department: {str(e)}")
+
+def edit_department(dep_id: int, data: CreateDepartmentRequest):
+    try:
+        if not update_department(dep_id, data.dep_name):
+            raise HTTPException(status_code=404, detail="Department not found")
+        return {"message": "Department updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update department: {str(e)}")
+
+def remove_department(dep_id: int):
+    try:
+        result = delete_department(dep_id)
+        if not result["department_deleted"]:
+            raise HTTPException(status_code=404, detail="Department not found")
+        return {
+            "message": (
+                "Department deleted successfully. "
+                f"{result['subjects_deleted']} linked subject(s) were also deleted."
+            )
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to delete department: {str(e)}")
 
 def list_subjects():
     return get_all_subjects()
@@ -40,6 +82,29 @@ def add_subject(data: CreateSubjectRequest):
         return {"message": "Subject created successfully", "sub_id": sub_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create subject: {str(e)}")
+
+def edit_subject(sub_id: int, data: CreateSubjectRequest):
+    try:
+        if not update_subject(sub_id, data.sub_name, data.dep_id):
+            raise HTTPException(status_code=404, detail="Subject not found")
+        return {"message": "Subject updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update subject: {str(e)}")
+
+def remove_subject(sub_id: int):
+    try:
+        if not delete_subject(sub_id):
+            raise HTTPException(status_code=404, detail="Subject not found")
+        return {"message": "Subject deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail="Subject cannot be deleted while it is used by an assignment."
+        )
 
 def list_teachers():
     return get_all_teachers()

@@ -62,6 +62,7 @@ class TeacherResetPasswordRequest(BaseModel):
 # Admin
 class CreateDepartmentRequest(BaseModel):
     dep_name: str = Field(..., min_length=2, max_length=100)
+    subject_names: Optional[List[str]] = None
 
 class CreateSubjectRequest(BaseModel):
     sub_name: str = Field(..., min_length=2, max_length=100)

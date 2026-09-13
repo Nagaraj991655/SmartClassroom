@@ -9,8 +9,12 @@ from app.model.schemas import (
 from app.controller.admin_controller import (
     list_departments,
     add_department,
+    edit_department,
+    remove_department,
     list_subjects,
     add_subject,
+    edit_subject,
+    remove_subject,
     list_teachers,
     add_teacher,
     list_students,
@@ -36,6 +40,14 @@ def get_departments():
 def create_new_department(data: CreateDepartmentRequest):
     return add_department(data)
 
+@router.put("/departments/{dep_id}")
+def update_existing_department(dep_id: int, data: CreateDepartmentRequest):
+    return edit_department(dep_id, data)
+
+@router.delete("/departments/{dep_id}")
+def delete_existing_department(dep_id: int):
+    return remove_department(dep_id)
+
 @router.get("/subjects")
 def get_subjects():
     return list_subjects()
@@ -43,6 +55,14 @@ def get_subjects():
 @router.post("/subjects")
 def create_new_subject(data: CreateSubjectRequest):
     return add_subject(data)
+
+@router.put("/subjects/{sub_id}")
+def update_existing_subject(sub_id: int, data: CreateSubjectRequest):
+    return edit_subject(sub_id, data)
+
+@router.delete("/subjects/{sub_id}")
+def delete_existing_subject(sub_id: int):
+    return remove_subject(sub_id)
 
 @router.get("/teachers")
 def get_teachers():
