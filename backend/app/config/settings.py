@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,7 +13,7 @@ class Settings(BaseSettings):
     DB_NAME: str = "smart_class"
 
     # JWT Authentication
-    JWT_SECRET: str = "smartclassroom_ucj_super_secret_jwt_key_2026_secure"
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
