@@ -3,6 +3,7 @@ from app.model.schemas import (
     CreateDepartmentRequest,
     CreateSubjectRequest,
     CreateTeacherRequest,
+    UpdateTeacherRequest,
     CreateStudentRequest
 )
 from app.model.admin_model import (
@@ -17,7 +18,11 @@ from app.model.admin_model import (
     delete_subject,
     link_department_subject,
     get_all_teachers,
+    get_next_teacher_id,
+    check_teacher_id_exists,
     create_teacher,
+    update_teacher,
+    delete_teacher,
     get_all_students,
     create_student,
     get_system_stats
@@ -109,19 +114,64 @@ def remove_subject(sub_id: int):
 def list_teachers():
     return get_all_teachers()
 
+def fetch_next_teacher_id():
+    return get_next_teacher_id()
+
+def check_teach_id_availability(teach_id: str) -> bool:
+    return check_teacher_id_exists(teach_id)
+
 def add_teacher(data: CreateTeacherRequest):
     try:
+        clean_teach_id = data.teach_id.strip()
+        if check_teacher_id_exists(clean_teach_id):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Staff ID '{clean_teach_id}' already exists in database. Please enter a different ID."
+            )
+
         hashed = hash_password(data.password)
         create_teacher(
-            teach_id=data.teach_id,
-            teach_name=data.teach_name,
-            email=data.email,
+            teach_id=clean_teach_id,
+            teach_name=data.teach_name.strip(),
+            email=data.email.strip().lower(),
             password_hash=hashed,
             subject_ids=data.subject_ids
         )
         return {"message": f"Teacher '{data.teach_name}' registered successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create teacher: {str(e)}")
+
+def edit_teacher(teach_id: str, data: UpdateTeacherRequest):
+    try:
+        clean_name = data.teach_name.strip()
+        clean_email = data.email.strip().lower()
+        hashed = hash_password(data.password) if data.password else None
+        
+        success = update_teacher(
+            teach_id=teach_id.strip(),
+            teach_name=clean_name,
+            email=clean_email,
+            password_hash=hashed,
+            subject_ids=data.subject_ids
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Teacher not found")
+        return {"message": f"Teacher '{clean_name}' updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update teacher: {str(e)}")
+
+def remove_teacher(teach_id: str):
+    try:
+        delete_teacher(teach_id.strip())
+        return {"message": "Teacher deleted successfully"}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to delete teacher: {str(e)}")
 
 def list_students():
     return get_all_students()

@@ -129,15 +129,43 @@ def get_subjects_by_department(dep_id: int) -> List[Dict[str, Any]]:
 def get_all_teachers() -> List[Dict[str, Any]]:
     sql = """
         SELECT t.teach_id, t.teach_name, t.email, t.created_at,
-               GROUP_CONCAT(s.sub_name SEPARATOR ', ') AS subjects_taught,
-               GROUP_CONCAT(s.sub_id SEPARATOR ',') AS subject_ids
+               GROUP_CONCAT(DISTINCT s.sub_name SEPARATOR ', ') AS subjects_taught,
+               GROUP_CONCAT(DISTINCT s.sub_id SEPARATOR ',') AS subject_ids,
+               GROUP_CONCAT(DISTINCT d.dep_name SEPARATOR ', ') AS departments,
+               GROUP_CONCAT(DISTINCT d.dep_id SEPARATOR ',') AS dep_ids
         FROM teachers t
         LEFT JOIN teacher_subjects ts ON t.teach_id = ts.teach_id
         LEFT JOIN subjects s ON ts.sub_id = s.sub_id
+        LEFT JOIN department_subjects ds ON s.sub_id = ds.sub_id
+        LEFT JOIN departments d ON ds.dep_id = d.dep_id
         GROUP BY t.teach_id
-        ORDER BY t.teach_name ASC
+        ORDER BY t.created_at DESC
     """
     return fetch_all(sql)
+
+def get_next_teacher_id() -> str:
+    """
+    Finds the last teacher ID from the database using DESC order LIMIT 1,
+    and returns the next sequential ID (+1), or T001 if no teachers exist.
+    """
+    sql = "SELECT teach_id FROM teachers ORDER BY LENGTH(teach_id) DESC, teach_id DESC LIMIT 1"
+    row = fetch_one(sql)
+    if not row or not row.get("teach_id"):
+        return "T001"
+    
+    last_id = row.get("teach_id", "").strip()
+    import re
+    match = re.search(r'\d+', last_id)
+    if match:
+        next_num = int(match.group(0)) + 1
+        return f"T{next_num:03d}"
+    return "T001"
+
+def check_teacher_id_exists(teach_id: str) -> bool:
+    """Checks whether a given teacher staff ID already exists in the database."""
+    clean_id = teach_id.strip().lower()
+    sql = "SELECT teach_id FROM teachers WHERE LOWER(teach_id) = %s LIMIT 1"
+    return fetch_one(sql, (clean_id,)) is not None
 
 def create_teacher(teach_id: str, teach_name: str, email: str, password_hash: str, subject_ids: List[int] = None) -> bool:
     with get_db_cursor() as cursor:
@@ -152,6 +180,49 @@ def create_teacher(teach_id: str, teach_name: str, email: str, password_hash: st
                     (teach_id, sub_id)
                 )
     return True
+
+def update_teacher(
+    teach_id: str,
+    teach_name: str,
+    email: str,
+    password_hash: Optional[str] = None,
+    subject_ids: Optional[List[int]] = None
+) -> bool:
+    with get_db_cursor() as cursor:
+        cursor.execute("SELECT teach_id FROM teachers WHERE teach_id = %s", (teach_id,))
+        if not cursor.fetchone():
+            return False
+
+        if password_hash:
+            cursor.execute(
+                "UPDATE teachers SET teach_name = %s, email = %s, password_hash = %s WHERE teach_id = %s",
+                (teach_name, email, password_hash, teach_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE teachers SET teach_name = %s, email = %s WHERE teach_id = %s",
+                (teach_name, email, teach_id)
+            )
+
+        if subject_ids is not None:
+            cursor.execute("DELETE FROM teacher_subjects WHERE teach_id = %s", (teach_id,))
+            for sub_id in subject_ids:
+                cursor.execute(
+                    "INSERT INTO teacher_subjects (teach_id, sub_id) VALUES (%s, %s)",
+                    (teach_id, sub_id)
+                )
+        return True
+
+def delete_teacher(teach_id: str) -> bool:
+    with get_db_cursor() as cursor:
+        cursor.execute("SELECT assignment_id FROM assignments WHERE teach_id = %s LIMIT 1", (teach_id,))
+        if cursor.fetchone():
+            raise ValueError("Teacher cannot be deleted while they have active assignments.")
+
+        cursor.execute("DELETE FROM teacher_password_resets WHERE teach_id = %s", (teach_id,))
+        cursor.execute("DELETE FROM teacher_subjects WHERE teach_id = %s", (teach_id,))
+        cursor.execute("DELETE FROM teachers WHERE teach_id = %s", (teach_id,))
+        return True
 
 # Students
 def get_all_students() -> List[Dict[str, Any]]:
