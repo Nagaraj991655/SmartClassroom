@@ -1,0 +1,42 @@
+# Environment files and secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+backend/my_venv/
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+build/
+.vite/
+.next/
+out/
+
+# Local tooling and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+#Agent
+ai_work.md
