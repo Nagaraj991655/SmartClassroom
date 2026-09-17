@@ -4,7 +4,8 @@ from app.model.schemas import (
     CreateSubjectRequest,
     CreateTeacherRequest,
     UpdateTeacherRequest,
-    CreateStudentRequest
+    CreateStudentRequest,
+    UpdateStudentRequest
 )
 from app.model.admin_model import (
     get_all_departments,
@@ -25,6 +26,8 @@ from app.model.admin_model import (
     delete_teacher,
     get_all_students,
     create_student,
+    update_student,
+    delete_student,
     get_system_stats
 )
 from app.helper.password import hash_password
@@ -180,9 +183,9 @@ def add_student(data: CreateStudentRequest):
     try:
         hashed = hash_password(data.password)
         create_student(
-            std_id=data.std_id,
-            std_name=data.std_name,
-            email=data.email,
+            std_id=data.std_id.strip(),
+            std_name=data.std_name.strip(),
+            email=data.email.strip().lower(),
             password_hash=hashed,
             dep_id=data.dep_id,
             subject_ids=data.subject_ids
@@ -190,6 +193,43 @@ def add_student(data: CreateStudentRequest):
         return {"message": f"Student '{data.std_name}' registered successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create student: {str(e)}")
+
+def edit_student(std_id: str, data: UpdateStudentRequest):
+    try:
+        clean_name = data.std_name.strip()
+        clean_email = data.email.strip().lower()
+        hashed = hash_password(data.password) if data.password else None
+
+        success = update_student(
+            std_id=std_id.strip(),
+            std_name=clean_name,
+            email=clean_email,
+            dep_id=data.dep_id,
+            password_hash=hashed,
+            subject_ids=data.subject_ids
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Student not found")
+        return {"message": f"Student '{clean_name}' updated successfully"}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update student: {str(e)}")
+
+def remove_student(std_id: str):
+    try:
+        success = delete_student(std_id.strip())
+        if not success:
+            raise HTTPException(status_code=404, detail="Student not found")
+        return {"message": "Student deleted successfully"}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to delete student: {str(e)}")
 
 def get_stats():
     return get_system_stats()

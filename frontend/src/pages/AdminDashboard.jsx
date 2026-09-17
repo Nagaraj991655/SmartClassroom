@@ -62,6 +62,10 @@ export default function AdminDashboard({ user, onLogout }) {
   const [teacherDateFrom, setTeacherDateFrom] = useState('');
   const [teacherDateTo, setTeacherDateTo] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
+  const [studentFilterDept, setStudentFilterDept] = useState('');
+  const [studentDateFrom, setStudentDateFrom] = useState('');
+  const [studentDateTo, setStudentDateTo] = useState('');
+  const [deptTooltip, setDeptTooltip] = useState({ visible: false, x: 0, y: 0, bottom: 0, deptName: '', subjects: '' });
 
   // Modals
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -72,6 +76,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [editingDepartment, setEditingDepartment] = useState(null);
   const [editingSubject, setEditingSubject] = useState(null);
   const [editingTeacher, setEditingTeacher] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState(null);
   const [showTeacherPassword, setShowTeacherPassword] = useState(false);
   const [staffIdError, setStaffIdError] = useState(null);
@@ -231,6 +236,19 @@ export default function AdminDashboard({ user, onLogout }) {
     setShowTeacherModal(true);
   };
 
+  const openStudentEditor = (st) => {
+    setEditingStudent(st);
+    setStudentForm({
+      std_id: st.std_id,
+      std_name: st.std_name || '',
+      email: st.email || '',
+      password: '',
+      dep_id: st.dep_id ? String(st.dep_id) : '',
+      subject_ids: []
+    });
+    setShowStudentModal(true);
+  };
+
   const handleTeachIdChange = async (val) => {
     const trimmed = val.trim();
     setTeacherForm((prev) => ({ ...prev, teach_id: val }));
@@ -323,9 +341,27 @@ export default function AdminDashboard({ user, onLogout }) {
   const handleCreateStudent = async (e) => {
     e.preventDefault();
     try {
+      if (editingStudent) {
+        const updatePayload = {
+          std_name: studentForm.std_name.trim(),
+          email: studentForm.email.trim().toLowerCase()
+        };
+        const res = await api.adminUpdateStudent(editingStudent.std_id, updatePayload);
+        setMessage({ type: 'success', text: res.message });
+        setShowStudentModal(false);
+        setEditingStudent(null);
+        setStudentForm({ std_id: '', std_name: '', email: '', password: '', dep_id: '', subject_ids: [] });
+        loadData();
+        return;
+      }
+
       const res = await api.adminAddStudent({
-        ...studentForm,
-        dep_id: parseInt(studentForm.dep_id)
+        std_id: studentForm.std_id.trim(),
+        std_name: studentForm.std_name.trim(),
+        email: studentForm.email.trim().toLowerCase(),
+        password: studentForm.password,
+        dep_id: parseInt(studentForm.dep_id, 10),
+        subject_ids: []
       });
       setMessage({ type: 'success', text: res.message });
       setShowStudentModal(false);
@@ -417,6 +453,14 @@ export default function AdminDashboard({ user, onLogout }) {
     });
   };
 
+  const handleDeleteStudent = (student) => {
+    setDeleteConfirmation({
+      type: 'student',
+      id: student.std_id,
+      name: student.std_name
+    });
+  };
+
   const confirmDelete = async () => {
     if (!deleteConfirmation) return;
 
@@ -428,6 +472,8 @@ export default function AdminDashboard({ user, onLogout }) {
         res = await api.adminDeleteDepartment(pendingDelete.id);
       } else if (pendingDelete.type === 'teacher') {
         res = await api.adminDeleteTeacher(pendingDelete.id);
+      } else if (pendingDelete.type === 'student') {
+        res = await api.adminDeleteStudent(pendingDelete.id);
       } else {
         res = await api.adminDeleteSubject(pendingDelete.id);
       }
@@ -519,14 +565,40 @@ export default function AdminDashboard({ user, onLogout }) {
   });
 
   const filteredStudents = students.filter((st) => {
-    const q = studentSearch.toLowerCase();
-    return (
-      (st.std_id && st.std_id.toLowerCase().includes(q)) ||
-      (st.std_name && st.std_name.toLowerCase().includes(q)) ||
-      (st.email && st.email.toLowerCase().includes(q)) ||
-      (st.dep_name && st.dep_name.toLowerCase().includes(q)) ||
-      (st.enrolled_subjects && st.enrolled_subjects.toLowerCase().includes(q))
-    );
+    // 1. Text search by index, name, email
+    if (studentSearch.trim()) {
+      const q = studentSearch.trim().toLowerCase();
+      const matchesSearch =
+        (st.std_id && st.std_id.toLowerCase().includes(q)) ||
+        (st.std_name && st.std_name.toLowerCase().includes(q)) ||
+        (st.email && st.email.toLowerCase().includes(q));
+      if (!matchesSearch) return false;
+    }
+
+    // 2. Filter by department
+    if (studentFilterDept) {
+      if (String(st.dep_id) !== String(studentFilterDept)) {
+        return false;
+      }
+    }
+
+    // 3. Filter by date range (created_at)
+    if (studentDateFrom || studentDateTo) {
+      if (!st.created_at) return false;
+      const regDate = new Date(typeof st.created_at === 'string' ? st.created_at.replace(' ', 'T') : st.created_at);
+      if (isNaN(regDate.getTime())) return false;
+
+      if (studentDateFrom) {
+        const from = new Date(studentDateFrom + 'T00:00:00');
+        if (regDate < from) return false;
+      }
+      if (studentDateTo) {
+        const to = new Date(studentDateTo + 'T23:59:59.999');
+        if (regDate > to) return false;
+      }
+    }
+
+    return true;
   });
 
   const adminUsername =
@@ -1192,7 +1264,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     <input
                       type="text"
                       className="admin-search-input"
-                      placeholder="Search index, name, dept..."
+                      placeholder="Search index, name, email..."
                       value={studentSearch}
                       onChange={(e) => setStudentSearch(e.target.value)}
                     />
@@ -1200,13 +1272,111 @@ export default function AdminDashboard({ user, onLogout }) {
 
                   <button
                     type="button"
-                    onClick={() => setShowStudentModal(true)}
+                    onClick={() => {
+                      setEditingStudent(null);
+                      setStudentForm({ std_id: '', std_name: '', email: '', password: '', dep_id: '', subject_ids: [] });
+                      setShowStudentModal(true);
+                    }}
                     className="btn btn-primary btn-sm"
                     style={{ background: '#2563eb', borderColor: '#2563eb' }}
                   >
                     <Plus size={16} />
                     <span>Add Student</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Filter Toolbar */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.85rem',
+                  padding: '0.85rem 1.25rem',
+                  background: '#f8fafc',
+                  borderBottom: '1px solid #e2e8f0',
+                  flexWrap: 'wrap',
+                  fontSize: '0.85rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <Filter size={15} />
+                  <span>Filters:</span>
+                </div>
+
+                {/* Filter by Department */}
+                <div style={{ minWidth: '160px', flex: '1 1 160px' }}>
+                  <select
+                    className="form-control"
+                    style={{ padding: '0.4rem 0.65rem', fontSize: '0.82rem', height: '36px', borderRadius: '8px' }}
+                    value={studentFilterDept}
+                    onChange={(e) => setStudentFilterDept(e.target.value)}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map((d) => (
+                      <option key={d.dep_id} value={d.dep_id}>
+                        {d.dep_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter by Date Range */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>From:</span>
+                    <input
+                      type="date"
+                      className="form-control"
+                      style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', height: '36px', borderRadius: '8px', width: '135px' }}
+                      value={studentDateFrom}
+                      onChange={(e) => setStudentDateFrom(e.target.value)}
+                      title="Registration Start Date"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>To:</span>
+                    <input
+                      type="date"
+                      className="form-control"
+                      style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', height: '36px', borderRadius: '8px', width: '135px' }}
+                      value={studentDateTo}
+                      onChange={(e) => setStudentDateTo(e.target.value)}
+                      title="Registration End Date"
+                    />
+                  </div>
+                </div>
+
+                {/* Clear Filters button */}
+                {(studentSearch || studentFilterDept || studentDateFrom || studentDateTo) && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      fontSize: '0.8rem',
+                      height: '36px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      borderRadius: '8px'
+                    }}
+                    onClick={() => {
+                      setStudentSearch('');
+                      setStudentFilterDept('');
+                      setStudentDateFrom('');
+                      setStudentDateTo('');
+                    }}
+                    title="Reset all filters"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Clear</span>
+                  </button>
+                )}
+
+                {/* Count badge */}
+                <div style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  Showing <strong style={{ color: 'var(--text-primary)' }}>{filteredStudents.length}</strong> of {students.length} students
                 </div>
               </div>
 
@@ -1219,15 +1389,17 @@ export default function AdminDashboard({ user, onLogout }) {
                       <th>Department</th>
                       <th>Email Address</th>
                       <th>Enrolled Subjects</th>
+                      <th>Registered Date</th>
+                      <th style={{ textAlign: 'center', width: '100px' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredStudents.length === 0 ? (
                       <tr>
-                        <td colSpan="5" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                        <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                           {students.length === 0
                             ? 'No students registered yet.'
-                            : 'No students match your search query.'}
+                            : 'No students match your search or filter criteria.'}
                         </td>
                       </tr>
                     ) : (
@@ -1237,8 +1409,36 @@ export default function AdminDashboard({ user, onLogout }) {
                             <span className="badge badge-primary">{st.std_id}</span>
                           </td>
                           <td style={{ fontWeight: 600 }}>{st.std_name}</td>
-                          <td>
-                            <span className="badge badge-success">{st.dep_name || 'General'}</span>
+                          <td
+                            style={{ position: 'relative' }}
+                            onMouseEnter={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDeptTooltip({
+                                visible: true,
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                                bottom: rect.bottom,
+                                deptName: st.dep_name || 'General',
+                                subjects: st.enrolled_subjects || ''
+                              });
+                            }}
+                            onMouseLeave={() => {
+                              setDeptTooltip((prev) => ({ ...prev, visible: false }));
+                            }}
+                          >
+                            <span
+                              className="badge badge-success"
+                              style={{
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <Building size={12} />
+                              <span>{st.dep_name || 'General'}</span>
+                            </span>
                           </td>
                           <td>{st.email}</td>
                           <td>
@@ -1247,6 +1447,31 @@ export default function AdminDashboard({ user, onLogout }) {
                             ) : (
                               <span style={{ color: 'var(--text-muted)' }}>None enrolled</span>
                             )}
+                          </td>
+                          <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                            {formatRegisteredDate(st.created_at)}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                title="Edit Student"
+                                onClick={() => openStudentEditor(st)}
+                                style={{ padding: '0.3rem 0.45rem', lineHeight: 1 }}
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                title="Delete Student"
+                                onClick={() => handleDeleteStudent(st)}
+                                style={{ padding: '0.3rem 0.45rem', lineHeight: 1, color: '#dc2626', border: '1px solid #fecaca', background: '#fef2f2' }}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1689,6 +1914,8 @@ export default function AdminDashboard({ user, onLogout }) {
                     ? `Delete department "${deleteConfirmation.name}" and subjects linked only to it?`
                     : deleteConfirmation.type === 'teacher'
                     ? `Delete teacher "${deleteConfirmation.name}" (${deleteConfirmation.id})? This cannot be undone.`
+                    : deleteConfirmation.type === 'student'
+                    ? `Delete student "${deleteConfirmation.name}" (${deleteConfirmation.id})? This cannot be undone.`
                     : `Delete subject "${deleteConfirmation.name}"?`}
                 </p>
               </div>
@@ -1896,35 +2123,39 @@ export default function AdminDashboard({ user, onLogout }) {
         <div className="modal-backdrop">
           <div className="modal-content">
             <div className="modal-header">
-              <h3>Register New Student</h3>
+              <h3>{editingStudent ? 'Edit Student' : 'Register New Student'}</h3>
               <button
                 type="button"
-                onClick={() => setShowStudentModal(false)}
+                onClick={() => { setShowStudentModal(false); setEditingStudent(null); }}
                 className="btn btn-secondary btn-sm"
               >
                 ✕
               </button>
             </div>
-            <form onSubmit={handleCreateStudent}>
+            <form onSubmit={handleCreateStudent} autoComplete="off">
               <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Student Index Number</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-control"
-                    placeholder="e.g. ST2026002"
-                    value={studentForm.std_id}
-                    onChange={(e) =>
-                      setStudentForm({ ...studentForm, std_id: e.target.value })
-                    }
-                  />
-                </div>
+                {!editingStudent && (
+                  <div className="form-group">
+                    <label className="form-label">Student Index Number</label>
+                    <input
+                      type="text"
+                      required
+                      autoComplete="off"
+                      className="form-control"
+                      placeholder="e.g. ST2026002"
+                      value={studentForm.std_id}
+                      onChange={(e) =>
+                        setStudentForm({ ...studentForm, std_id: e.target.value })
+                      }
+                    />
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label">Student Full Name</label>
                   <input
                     type="text"
                     required
+                    autoComplete="off"
                     className="form-control"
                     placeholder="e.g. Johnathan Smith"
                     value={studentForm.std_name}
@@ -1933,29 +2164,32 @@ export default function AdminDashboard({ user, onLogout }) {
                     }
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Department</label>
-                  <select
-                    required
-                    className="form-control"
-                    value={studentForm.dep_id}
-                    onChange={(e) =>
-                      setStudentForm({ ...studentForm, dep_id: e.target.value })
-                    }
-                  >
-                    <option value="">-- Select Department --</option>
-                    {departments.map((d) => (
-                      <option key={d.dep_id} value={d.dep_id}>
-                        {d.dep_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!editingStudent && (
+                  <div className="form-group">
+                    <label className="form-label">Department</label>
+                    <select
+                      required
+                      className="form-control"
+                      value={studentForm.dep_id}
+                      onChange={(e) =>
+                        setStudentForm({ ...studentForm, dep_id: e.target.value })
+                      }
+                    >
+                      <option value="">-- Select Department --</option>
+                      {departments.map((d) => (
+                        <option key={d.dep_id} value={d.dep_id}>
+                          {d.dep_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label">Email Address (for notifications)</label>
                   <input
                     type="email"
                     required
+                    autoComplete="off"
                     className="form-control"
                     placeholder="e.g. student@ucj.ac.lk"
                     value={studentForm.email}
@@ -1964,76 +2198,34 @@ export default function AdminDashboard({ user, onLogout }) {
                     }
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Password</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    className="form-control"
-                    placeholder="At least 6 characters"
-                    value={studentForm.password}
-                    onChange={(e) =>
-                      setStudentForm({ ...studentForm, password: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Enroll Subjects</label>
-                  <div
-                    style={{
-                      maxHeight: '130px',
-                      overflowY: 'auto',
-                      border: '1px solid var(--border-light)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '0.5rem'
-                    }}
-                  >
-                    {subjects.length === 0 ? (
-                      <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        No subjects available. Please add subjects first.
-                      </span>
-                    ) : (
-                      subjects.map((s) => (
-                        <label
-                          key={s.sub_id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            marginBottom: '0.3rem',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={studentForm.subject_ids.includes(s.sub_id)}
-                            onChange={(e) => {
-                              const cur = studentForm.subject_ids;
-                              const updated = e.target.checked
-                                ? [...cur, s.sub_id]
-                                : cur.filter((id) => id !== s.sub_id);
-                              setStudentForm({ ...studentForm, subject_ids: updated });
-                            }}
-                          />
-                          <span>{s.sub_name}</span>
-                        </label>
-                      ))
-                    )}
+                {!editingStudent && (
+                  <div className="form-group">
+                    <label className="form-label">Password</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      className="form-control"
+                      placeholder="At least 6 characters"
+                      value={studentForm.password}
+                      onChange={(e) =>
+                        setStudentForm({ ...studentForm, password: e.target.value })
+                      }
+                    />
                   </div>
-                </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button
                   type="button"
-                  onClick={() => setShowStudentModal(false)}
+                  onClick={() => { setShowStudentModal(false); setEditingStudent(null); }}
                   className="btn btn-secondary"
                 >
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ background: '#2563eb', borderColor: '#2563eb' }}>
-                  Save Student
+                  {editingStudent ? 'Update Student' : 'Save Student'}
                 </button>
               </div>
             </form>
@@ -2213,6 +2405,102 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Floating Fixed Tooltip for Student Department Hover (Enrolled Subjects) */}
+      {deptTooltip.visible && (
+        <div
+          style={{
+            position: 'fixed',
+            top: deptTooltip.y < 220 ? `${deptTooltip.bottom + 10}px` : `${deptTooltip.y - 10}px`,
+            left: `${Math.max(160, Math.min(window.innerWidth - 160, deptTooltip.x))}px`,
+            transform: deptTooltip.y < 220 ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+            backgroundColor: '#ffffff',
+            border: '1px solid #cbd5e1',
+            borderRadius: '12px',
+            padding: '0.85rem 1.1rem',
+            boxShadow: '0 20px 35px -5px rgba(0, 0, 0, 0.22), 0 10px 15px -5px rgba(0, 0, 0, 0.1)',
+            zIndex: 999999,
+            minWidth: '240px',
+            maxWidth: '340px',
+            pointerEvents: 'none',
+            textAlign: 'left'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              color: '#0f172a',
+              marginBottom: '0.55rem',
+              borderBottom: '1px solid #f1f5f9',
+              paddingBottom: '0.4rem',
+              letterSpacing: '0.02em'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <BookOpen size={14} color="#2563eb" />
+              <span>{deptTooltip.deptName} Department Subjects</span>
+            </div>
+            <span
+              style={{
+                fontSize: '0.7rem',
+                background: '#eff6ff',
+                color: '#2563eb',
+                padding: '0.15rem 0.45rem',
+                borderRadius: '9999px',
+                fontWeight: 700
+              }}
+            >
+              {deptTooltip.subjects ? deptTooltip.subjects.split(',').length : 0} Subjects
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+            {deptTooltip.subjects ? (
+              deptTooltip.subjects.split(',').map((sub, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    background: '#f0fdf4',
+                    color: '#15803d',
+                    border: '1px solid #bbf7d0',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    padding: '0.28rem 0.65rem',
+                    borderRadius: '6px',
+                    lineHeight: 1.3
+                  }}
+                >
+                  <CheckCircle2 size={12} color="#16a34a" />
+                  <span>{sub.trim()}</span>
+                </span>
+              ))
+            ) : (
+              <span style={{ color: '#64748b', fontSize: '0.8rem' }}>No subjects assigned to this department</span>
+            )}
+          </div>
+          {/* Arrow pointing down or up directly at the badge */}
+          <div
+            style={{
+              position: 'absolute',
+              top: deptTooltip.y < 220 ? '-7px' : '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '7px solid transparent',
+              borderRight: '7px solid transparent',
+              borderTop: deptTooltip.y < 220 ? 'none' : '7px solid #ffffff',
+              borderBottom: deptTooltip.y < 220 ? '7px solid #ffffff' : 'none'
+            }}
+          />
         </div>
       )}
     </div>

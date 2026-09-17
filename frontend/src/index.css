@@ -444,16 +444,29 @@ textarea.form-control {
   justify-content: center;
   z-index: 200;
   padding: 1rem;
+  overflow-y: auto;
 }
 
 .modal-content {
   background: white;
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 540px;
+  max-width: 560px;
   box-shadow: var(--shadow-xl);
   overflow: hidden;
   animation: modalFadeIn 0.2s ease-out;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+}
+
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @keyframes modalFadeIn {
@@ -474,10 +487,15 @@ textarea.form-control {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
 }
 
 .modal-body {
   padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-footer {
@@ -487,6 +505,21 @@ textarea.form-control {
   justify-content: flex-end;
   gap: 0.75rem;
   border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+/* 2-Column Responsive Grid for Modals */
+.assignment-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .assignment-modal-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
 }
 
 /* Tabs */
@@ -2049,4 +2082,132 @@ body.is-scrolling::-webkit-scrollbar-thumb,
   .admin-profile-hero {
     padding: 1.5rem;
   }
+
+  /* Responsive Modal for Mobile */
+  .modal-backdrop {
+    padding: 0.5rem;
+    align-items: flex-start;
+    padding-top: 2rem;
+  }
+
+  .modal-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+  }
+
+  .modal-header {
+    padding: 1rem 1.15rem;
+    flex-shrink: 0;
+  }
+
+  .modal-header h3 {
+    font-size: 1.05rem;
+  }
+
+  .modal-body {
+    padding: 1.15rem;
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-footer {
+    padding: 0.85rem 1.15rem;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+  }
+
+  /* Stack 2-column date grid to single column on mobile */
+  .modal-body div[style*="gridTemplateColumns: '1fr 1fr'"],
+  .modal-body div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ============================================================
+   Student Department Hover Tooltip (Enrolled Subjects)
+   ============================================================ */
+.student-dept-hover-container {
+  position: relative;
+  display: inline-block;
+}
+
+.student-dept-hover-container .student-dept-popover {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 200px;
+  max-width: 300px;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: normal;
+  text-align: left;
+}
+
+.student-dept-hover-container .student-dept-popover::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+}
+
+.student-dept-hover-container:hover .student-dept-popover {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.student-dept-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.45rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.student-dept-popover-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.student-dept-sub-tag {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  line-height: 1.3;
 }

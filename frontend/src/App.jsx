@@ -62,12 +62,7 @@ export default function App() {
 
   const teacherDashboard =
     currentUser && currentUser.role === 'teacher' && authStorage.getToken() ? (
-      <div className="app-container">
-        <Navbar user={currentUser} onLogout={handleLogout} />
-        <main style={{ flex: 1 }}>
-          <TeacherDashboard user={currentUser} />
-        </main>
-      </div>
+      <TeacherDashboard user={currentUser} onLogout={handleLogout} />
     ) : (
       <Navigate to="/staff/login" replace />
     );
@@ -160,8 +155,8 @@ export default function App() {
       <Route path="/staff/ad_dashboard/*" element={adminDashboard} />
       <Route path="/admin/dashboard" element={<Navigate to="/staff/ad_dashboard" replace />} />
 
-      {/* 5. Teacher Dashboard (Dedicated Route with Guard) */}
-      <Route path="/staff/te_dashboard" element={teacherDashboard} />
+      {/* 5. Teacher Dashboard (Dedicated Route with Guard & Sidebar Layout) */}
+      <Route path="/staff/te_dashboard" element={<Navigate to="/staff/te_dashboard/home" replace />} />
       <Route path="/staff/te_dashboard/*" element={teacherDashboard} />
       <Route path="/teacher/dashboard" element={<Navigate to="/staff/te_dashboard" replace />} />
       <Route path="/teacher" element={<Navigate to="/staff/te_dashboard" replace />} />

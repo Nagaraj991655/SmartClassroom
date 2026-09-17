@@ -121,6 +121,8 @@ export const api = {
   adminDeleteTeacher: (id) => request(`/admin/teachers/${encodeURIComponent(id)}`, { method: "DELETE" }),
   adminGetStudents: () => request("/admin/students"),
   adminAddStudent: (data) => request("/admin/students", { method: "POST", body: JSON.stringify(data) }),
+  adminUpdateStudent: (id, data) => request(`/admin/students/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(data) }),
+  adminDeleteStudent: (id) => request(`/admin/students/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   teacherGetSubjects: () => request("/teacher/subjects"),
   teacherGetAssignments: () => request("/teacher/assignments"),

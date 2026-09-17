@@ -89,6 +89,13 @@ class CreateStudentRequest(BaseModel):
     dep_id: int
     subject_ids: Optional[List[int]] = []
 
+class UpdateStudentRequest(BaseModel):
+    std_name: str = Field(..., min_length=2, max_length=150)
+    email: EmailStr
+    dep_id: Optional[int] = None
+    password: Optional[str] = Field(None, min_length=6)
+    subject_ids: Optional[List[int]] = None
+
 # Teacher
 class GradeSubmissionRequest(BaseModel):
     marks: float = Field(..., ge=0, le=100, description="Score between 0 and 100")

@@ -113,7 +113,13 @@ def delete_subject(sub_id: int) -> int:
 
 def link_department_subject(dep_id: int, sub_id: int):
     sql = "INSERT IGNORE INTO department_subjects (dep_id, sub_id) VALUES (%s, %s)"
-    return execute_query(sql, (dep_id, sub_id))
+    execute_query(sql, (dep_id, sub_id))
+    # Auto-enroll all existing students of this department into the newly linked subject
+    sync_sql = """
+        INSERT IGNORE INTO student_subjects (std_id, sub_id)
+        SELECT s.std_id, %s FROM students s WHERE s.dep_id = %s
+    """
+    execute_query(sync_sql, (sub_id, dep_id))
 
 def get_subjects_by_department(dep_id: int) -> List[Dict[str, Any]]:
     sql = """
@@ -228,14 +234,14 @@ def delete_teacher(teach_id: str) -> bool:
 def get_all_students() -> List[Dict[str, Any]]:
     sql = """
         SELECT s.std_id, s.std_name, s.email, s.dep_id, s.created_at, d.dep_name,
-               GROUP_CONCAT(sub.sub_name SEPARATOR ', ') AS enrolled_subjects,
-               GROUP_CONCAT(sub.sub_id SEPARATOR ',') AS enrolled_subject_ids
+               GROUP_CONCAT(DISTINCT sub.sub_name ORDER BY sub.sub_name SEPARATOR ', ') AS enrolled_subjects,
+               GROUP_CONCAT(DISTINCT sub.sub_id ORDER BY sub.sub_id SEPARATOR ',') AS enrolled_subject_ids
         FROM students s
         LEFT JOIN departments d ON s.dep_id = d.dep_id
-        LEFT JOIN student_subjects ss ON s.std_id = ss.std_id
-        LEFT JOIN subjects sub ON ss.sub_id = sub.sub_id
+        LEFT JOIN department_subjects ds ON s.dep_id = ds.dep_id
+        LEFT JOIN subjects sub ON ds.sub_id = sub.sub_id
         GROUP BY s.std_id
-        ORDER BY s.std_name ASC
+        ORDER BY s.created_at DESC, s.std_name ASC
     """
     return fetch_all(sql)
 
@@ -245,13 +251,83 @@ def create_student(std_id: str, std_name: str, email: str, password_hash: str, d
             "INSERT INTO students (std_id, std_name, email, password_hash, dep_id) VALUES (%s, %s, %s, %s, %s)",
             (std_id, std_name, email, password_hash, dep_id)
         )
-        if subject_ids:
+        # Automatically enroll student into ALL subjects offered by their department
+        if dep_id:
+            cursor.execute(
+                """
+                INSERT IGNORE INTO student_subjects (std_id, sub_id)
+                SELECT %s, sub_id FROM department_subjects WHERE dep_id = %s
+                """,
+                (std_id, dep_id)
+            )
+        elif subject_ids:
             for sub_id in subject_ids:
                 cursor.execute(
-                    "INSERT INTO student_subjects (std_id, sub_id) VALUES (%s, %s)",
+                    "INSERT IGNORE INTO student_subjects (std_id, sub_id) VALUES (%s, %s)",
                     (std_id, sub_id)
                 )
     return True
+
+def update_student(
+    std_id: str,
+    std_name: str,
+    email: str,
+    dep_id: Optional[int] = None,
+    password_hash: Optional[str] = None,
+    subject_ids: Optional[List[int]] = None
+) -> bool:
+    with get_db_cursor() as cursor:
+        cursor.execute("SELECT std_id, dep_id FROM students WHERE std_id = %s", (std_id,))
+        existing = cursor.fetchone()
+        if not existing:
+            return False
+
+        # Validate unique email
+        cursor.execute("SELECT std_id FROM students WHERE email = %s AND std_id != %s", (email, std_id))
+        if cursor.fetchone():
+            raise ValueError(f"Email '{email}' is already registered by another student.")
+
+        target_dep_id = dep_id if dep_id is not None else existing["dep_id"]
+
+        if password_hash:
+            cursor.execute(
+                "UPDATE students SET std_name = %s, email = %s, dep_id = %s, password_hash = %s WHERE std_id = %s",
+                (std_name, email, target_dep_id, password_hash, std_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE students SET std_name = %s, email = %s, dep_id = %s WHERE std_id = %s",
+                (std_name, email, target_dep_id, std_id)
+            )
+
+        if dep_id is not None and dep_id != existing["dep_id"]:
+            cursor.execute("DELETE FROM student_subjects WHERE std_id = %s", (std_id,))
+            cursor.execute(
+                """
+                INSERT IGNORE INTO student_subjects (std_id, sub_id)
+                SELECT %s, sub_id FROM department_subjects WHERE dep_id = %s
+                """,
+                (std_id, target_dep_id)
+            )
+        elif subject_ids is not None:
+            cursor.execute("DELETE FROM student_subjects WHERE std_id = %s", (std_id,))
+            for sub_id in subject_ids:
+                cursor.execute(
+                    "INSERT IGNORE INTO student_subjects (std_id, sub_id) VALUES (%s, %s)",
+                    (std_id, sub_id)
+                )
+        return True
+
+def delete_student(std_id: str) -> bool:
+    with get_db_cursor() as cursor:
+        cursor.execute("SELECT std_id FROM students WHERE std_id = %s", (std_id,))
+        if not cursor.fetchone():
+            return False
+
+        cursor.execute("DELETE FROM student_password_resets WHERE std_id = %s", (std_id,))
+        cursor.execute("DELETE FROM student_subjects WHERE std_id = %s", (std_id,))
+        cursor.execute("DELETE FROM students WHERE std_id = %s", (std_id,))
+        return True
 
 # Overview Statistics
 def get_system_stats() -> Dict[str, int]:
