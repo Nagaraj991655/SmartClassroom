@@ -67,7 +67,7 @@ def get_assignment_submissions_and_pending(assignment_id: int) -> Dict[str, Any]
 
     sub_id = assignment["sub_id"]
 
-    # All enrolled students with their submission status if exists
+    # All enrolled students with their submission status and question paper activity if exists
     sql = """
         SELECT 
             st.std_id,
@@ -81,25 +81,37 @@ def get_assignment_submissions_and_pending(assignment_id: int) -> Dict[str, Any]
             g.grade_id,
             g.marks,
             g.feedback,
-            g.graded_at
+            g.graded_at,
+            aqv.first_viewed_at,
+            aqv.last_viewed_at,
+            COALESCE(aqv.view_count, 0) AS question_view_count,
+            aqv.first_downloaded_at,
+            aqv.last_downloaded_at,
+            COALESCE(aqv.download_count, 0) AS question_download_count
         FROM student_subjects ss
         JOIN students st ON ss.std_id = st.std_id
         JOIN departments d ON st.dep_id = d.dep_id
         LEFT JOIN submissions sub ON sub.assignment_id = %s AND sub.std_id = st.std_id
         LEFT JOIN grades g ON sub.submission_id = g.submission_id
+        LEFT JOIN assignment_question_views aqv ON aqv.assignment_id = %s AND aqv.std_id = st.std_id
         WHERE ss.sub_id = %s
         ORDER BY sub.submitted_at DESC, st.std_name ASC
     """
-    records = fetch_all(sql, (assignment_id, sub_id))
+    records = fetch_all(sql, (assignment_id, assignment_id, sub_id))
     
     submitted = [r for r in records if r.get("submission_id") is not None]
     pending = [r for r in records if r.get("submission_id") is None]
+    viewed_or_downloaded = [
+        r for r in records 
+        if (r.get("question_view_count", 0) > 0 or r.get("question_download_count", 0) > 0)
+    ]
 
     return {
         "assignment": assignment,
         "total_enrolled": len(records),
         "submitted_count": len(submitted),
         "pending_count": len(pending),
+        "viewed_count": len(viewed_or_downloaded),
         "submitted_students": submitted,
         "pending_students": pending
     }
@@ -145,3 +157,9 @@ def get_enrolled_student_emails_for_subject(sub_id: int) -> List[str]:
     """
     rows = fetch_all(sql, (sub_id,))
     return [r["email"] for r in rows if r.get("email")]
+
+def get_subject_name_by_id(sub_id: int) -> Optional[str]:
+    """Returns the subject display name for the given sub_id, or None if not found."""
+    sql = "SELECT sub_name FROM subjects WHERE sub_id = %s"
+    row = fetch_one(sql, (sub_id,))
+    return row["sub_name"] if row else None

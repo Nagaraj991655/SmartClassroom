@@ -95,3 +95,32 @@ def get_student_results(std_id: str) -> List[Dict[str, Any]]:
         ORDER BY g.graded_at DESC
     """
     return fetch_all(sql, (std_id,))
+
+def record_student_question_activity(assignment_id: int, std_id: str, action: str = "view") -> bool:
+    """
+    Records student viewing or downloading of an assignment question paper.
+    """
+    if action == "download":
+        sql = """
+            INSERT INTO assignment_question_views 
+                (assignment_id, std_id, first_viewed_at, last_viewed_at, view_count, first_downloaded_at, last_downloaded_at, download_count)
+            VALUES 
+                (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)
+            ON DUPLICATE KEY UPDATE
+                last_downloaded_at = CURRENT_TIMESTAMP,
+                download_count = download_count + 1,
+                first_downloaded_at = IFNULL(first_downloaded_at, CURRENT_TIMESTAMP)
+        """
+    else:
+        sql = """
+            INSERT INTO assignment_question_views 
+                (assignment_id, std_id, first_viewed_at, last_viewed_at, view_count, download_count)
+            VALUES 
+                (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0)
+            ON DUPLICATE KEY UPDATE
+                last_viewed_at = CURRENT_TIMESTAMP,
+                view_count = view_count + 1
+        """
+    execute_query(sql, (assignment_id, std_id))
+    return True
+

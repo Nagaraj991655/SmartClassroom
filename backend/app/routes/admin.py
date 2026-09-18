@@ -5,7 +5,8 @@ from app.model.schemas import (
     CreateSubjectRequest,
     CreateTeacherRequest,
     UpdateTeacherRequest,
-    CreateStudentRequest
+    CreateStudentRequest,
+    UpdateStudentRequest
 )
 from app.controller.admin_controller import (
     list_departments,
@@ -24,6 +25,8 @@ from app.controller.admin_controller import (
     remove_teacher,
     list_students,
     add_student,
+    edit_student,
+    remove_student,
     get_stats
 )
 
@@ -100,3 +103,11 @@ def get_students():
 @router.post("/students")
 def create_new_student(data: CreateStudentRequest):
     return add_student(data)
+
+@router.put("/students/{std_id}")
+def update_existing_student(std_id: str, data: UpdateStudentRequest):
+    return edit_student(std_id, data)
+
+@router.delete("/students/{std_id}")
+def delete_existing_student(std_id: str):
+    return remove_student(std_id)
