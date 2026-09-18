@@ -66,5 +66,26 @@ def run_seed():
             )
             logger.info("Created default subjects and department links")
 
+        # 4. Assignment Question Views Tracking Table
+        execute_query("""
+            CREATE TABLE IF NOT EXISTS assignment_question_views (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                assignment_id INT UNSIGNED NOT NULL,
+                std_id VARCHAR(20) NOT NULL,
+                first_viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                view_count INT UNSIGNED NOT NULL DEFAULT 1,
+                first_downloaded_at DATETIME NULL,
+                last_downloaded_at DATETIME NULL,
+                download_count INT UNSIGNED NOT NULL DEFAULT 0,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_assignment_student_view (assignment_id, std_id),
+                KEY idx_aqv_assignment (assignment_id),
+                KEY idx_aqv_student (std_id),
+                CONSTRAINT fk_aqv_assignment FOREIGN KEY (assignment_id) REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+                CONSTRAINT fk_aqv_student FOREIGN KEY (std_id) REFERENCES students(std_id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
     except Exception as e:
         logger.error(f"Seed check error: {e}")

@@ -141,5 +141,9 @@ export const api = {
     formData.append("file", file);
     return request(`/student/assignments/${assignmentId}/submit`, { method: "POST", body: formData });
   },
+  studentTrackQuestionActivity: (assignmentId, action = "view") =>
+    request(`/student/assignments/${assignmentId}/activity?action=${encodeURIComponent(action)}`, {
+      method: "POST"
+    }),
   studentGetGrades: () => request("/student/grades")
 };

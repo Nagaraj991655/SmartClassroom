@@ -10,7 +10,8 @@ from app.model.teacher_model import (
     get_assignment_submissions_and_pending,
     grade_submission,
     get_submission_student_details,
-    get_enrolled_student_emails_for_subject
+    get_enrolled_student_emails_for_subject,
+    get_subject_name_by_id
 )
 from app.helper.storage import save_assignment_question_file
 from app.helper.mailer import send_assignment_opened_email, send_grade_published_email
@@ -62,12 +63,15 @@ def create_teacher_assignment(
 
     # Trigger email notification to students enrolled in subject in background
     enrolled_emails = get_enrolled_student_emails_for_subject(sub_id)
+    subject_display_name = get_subject_name_by_id(sub_id) or f"Subject #{sub_id}"
+    notified_count = 0
     if enrolled_emails:
+        notified_count = len(enrolled_emails)
         background_tasks.add_task(
             send_assignment_opened_email,
             student_emails=enrolled_emails,
             assignment_title=ass_name,
-            subject_name=f"Subject #{sub_id}",
+            subject_name=subject_display_name,
             start_at=str(start_at),
             end_at=str(end_at)
         )
@@ -75,7 +79,9 @@ def create_teacher_assignment(
     return {
         "message": "Assignment created successfully",
         "assignment_id": assignment_id,
-        "doc_url": doc_url
+        "doc_url": doc_url,
+        "notified_count": notified_count,
+        "subject_name": subject_display_name
     }
 
 def get_assignment_details_and_submissions(assignment_id: int, teach_id: str):

@@ -5,7 +5,8 @@ from app.controller.student_controller import (
     get_enrolled_subjects,
     list_assignments,
     handle_submission,
-    get_my_grades
+    get_my_grades,
+    track_question_activity
 )
 
 router = APIRouter(
@@ -33,6 +34,14 @@ def submit_my_assignment(
     current_user: dict = Depends(require_role("student"))
 ):
     return handle_submission(assignment_id, current_user["user_id"], file)
+
+@router.post("/assignments/{assignment_id}/activity")
+def record_question_paper_activity(
+    assignment_id: int,
+    action: str = "view",
+    current_user: dict = Depends(require_role("student"))
+):
+    return track_question_activity(assignment_id, current_user["user_id"], action)
 
 @router.get("/grades")
 def get_my_evaluation_results(current_user: dict = Depends(require_role("student"))):

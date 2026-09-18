@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { authStorage } from './services/api';
-import Navbar from './components/Navbar';
 import StudentLoginPage from './pages/StudentLoginPage';
 import TeacherLoginPage from './pages/TeacherLoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -31,7 +30,7 @@ export default function App() {
     } else if (user && user.role === 'teacher') {
       navigate('/staff/te_dashboard', { replace: true });
     } else {
-      navigate('/', { replace: true });
+      navigate('/student/st_dashboard', { replace: true });
     }
   };
 
@@ -67,6 +66,13 @@ export default function App() {
       <Navigate to="/staff/login" replace />
     );
 
+  const studentDashboard =
+    currentUser && currentUser.role === 'student' && authStorage.getToken() ? (
+      <StudentDashboard user={currentUser} onLogout={handleLogout} />
+    ) : (
+      <Navigate to="/login" replace />
+    );
+
   if (loading) {
     return (
       <div style={{
@@ -97,7 +103,7 @@ export default function App() {
             ) : currentUser.role === 'teacher' ? (
               <Navigate to="/staff/te_dashboard" replace />
             ) : (
-              <Navigate to="/" replace />
+              <Navigate to="/student/st_dashboard" replace />
             )
           ) : (
             <StudentLoginPage onLoginSuccess={handleLoginSuccess} />
@@ -117,7 +123,7 @@ export default function App() {
             ) : currentUser.role === 'teacher' ? (
               <Navigate to="/staff/te_dashboard" replace />
             ) : (
-              <Navigate to="/" replace />
+              <Navigate to="/student/st_dashboard" replace />
             )
           ) : (
             <TeacherLoginPage onLoginSuccess={handleLoginSuccess} />
@@ -139,7 +145,7 @@ export default function App() {
             ) : currentUser.role === 'teacher' ? (
               <Navigate to="/staff/te_dashboard" replace />
             ) : (
-              <Navigate to="/" replace />
+              <Navigate to="/student/st_dashboard" replace />
             )
           ) : (
             <AdminLoginPage onLoginSuccess={handleLoginSuccess} />
@@ -161,7 +167,18 @@ export default function App() {
       <Route path="/teacher/dashboard" element={<Navigate to="/staff/te_dashboard" replace />} />
       <Route path="/teacher" element={<Navigate to="/staff/te_dashboard" replace />} />
 
-      {/* 6. General Dashboard / Student Dashboard */}
+      {/* 6. Student Dashboard (Dedicated Route with Guard & Sidebar Layout) */}
+      <Route path="/student/st_dashboard" element={<Navigate to="/student/st_dashboard/home" replace />} />
+      <Route path="/student/st_dashboard/*" element={studentDashboard} />
+      <Route path="/student/dashboard" element={<Navigate to="/student/st_dashboard/home" replace />} />
+      <Route path="/student/dashboard/*" element={studentDashboard} />
+      <Route path="/student" element={<Navigate to="/student/st_dashboard" replace />} />
+      <Route path="/student/home" element={<Navigate to="/student/st_dashboard/home" replace />} />
+      <Route path="/student/assignments" element={<Navigate to="/student/st_dashboard/assignments" replace />} />
+      <Route path="/student/grades" element={<Navigate to="/student/st_dashboard/grades" replace />} />
+      <Route path="/student/profile" element={<Navigate to="/student/st_dashboard/profile" replace />} />
+
+      {/* 7. Root redirection based on role */}
       <Route
         path="/"
         element={
@@ -171,12 +188,7 @@ export default function App() {
             ) : currentUser.role === 'teacher' ? (
               <Navigate to="/staff/te_dashboard" replace />
             ) : (
-              <div className="app-container">
-                <Navbar user={currentUser} onLogout={handleLogout} />
-                <main style={{ flex: 1 }}>
-                  <StudentDashboard user={currentUser} />
-                </main>
-              </div>
+              <Navigate to="/student/st_dashboard" replace />
             )
           ) : (
             <Navigate to="/login" replace />

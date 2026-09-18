@@ -68,17 +68,132 @@ def send_assignment_opened_email(
 ) -> bool:
     """Notifies students when a new assignment is opened."""
     subject = f"[SmartClassroom] New Assignment Available: {assignment_title}"
+
+    # Format dates for display
+    try:
+        from datetime import datetime
+        dt_start = datetime.fromisoformat(start_at.replace("Z", ""))
+        dt_end = datetime.fromisoformat(end_at.replace("Z", ""))
+        formatted_start = dt_start.strftime("%B %d, %Y at %I:%M %p")
+        formatted_end = dt_end.strftime("%B %d, %Y at %I:%M %p")
+    except Exception:
+        formatted_start = start_at
+        formatted_end = end_at
+
     html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #1e3a8a;">New Assignment Notification</h2>
-        <p>A new assignment has been opened in your subject <strong>{subject_name}</strong>.</p>
-        <div style="background-color: #f8fafc; padding: 16px; border-left: 4px solid #3b82f6; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Title:</strong> {assignment_title}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Available From:</strong> {start_at}</p>
-            <p style="margin: 0;"><strong>Submission Deadline:</strong> {end_at}</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: auto; padding: 32px; background-color: #faf9f5; border: 1px solid #e8e6dc; border-radius: 12px; color: #141413;">
+        <div style="border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px;">
+            <h2 style="margin: 0; color: #141413; font-size: 20px; font-weight: 700;">SmartClassroom &bull; New Assignment</h2>
+            <p style="margin: 4px 0 0 0; color: #7a7870; font-size: 13px;">University College of Jaffna &bull; Academic Notification</p>
         </div>
-        <p>Please log in to your SmartClassroom account to download the question document and submit your work before the deadline.</p>
-        <p style="color: #64748b; font-size: 12px; margin-top: 24px;">University College of Jaffna &bull; SmartClassroom System</p>
+
+        <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">Hello Student,</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #4d4c47; margin: 0 0 20px 0;">
+            A new assignment has been published for your enrolled subject <strong>{subject_name}</strong>. Please review the details below and submit your work before the deadline.
+        </p>
+
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 24px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; width: 140px; vertical-align: top; border-bottom: 1px solid #f1f5f9;">Assignment</td>
+                    <td style="padding: 10px 12px; color: #141413; font-weight: 700; font-size: 15px; border-bottom: 1px solid #f1f5f9;">{assignment_title}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top; border-bottom: 1px solid #f1f5f9;">Subject</td>
+                    <td style="padding: 10px 12px; color: #141413; border-bottom: 1px solid #f1f5f9;">
+                        <span style="display: inline-block; background: #eff6ff; color: #1d4ed8; padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 13px;">{subject_name}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top; border-bottom: 1px solid #f1f5f9;">Opens On</td>
+                    <td style="padding: 10px 12px; color: #047857; font-weight: 600; border-bottom: 1px solid #f1f5f9;">{formatted_start}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top;">Deadline</td>
+                    <td style="padding: 10px 12px; color: #b91c1c; font-weight: 700;">{formatted_end}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background-color: #eff6ff; border-left: 4px solid #2563eb; padding: 14px; border-radius: 6px; margin: 24px 0;">
+            <p style="margin: 0; font-size: 13px; color: #1e3a8a; line-height: 1.5;">
+                <strong>Action Required:</strong> Log in to your SmartClassroom dashboard to download the question document and submit your completed work before the submission deadline.
+            </p>
+        </div>
+
+        <p style="color: #8c8a82; font-size: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e8e6dc;">
+            University College of Jaffna &bull; Academic Affairs<br>
+            Automatic notification generated by SmartClassroom Assignment Service.
+        </p>
+    </div>
+    """
+    return send_email(student_emails, subject, html)
+
+def send_assignment_start_reminder_email(
+    student_emails: List[str],
+    assignment_title: str,
+    subject_name: str,
+    start_at: str,
+    end_at: str
+) -> bool:
+    """Notifies students 1 hour before an assignment begins that question papers will unlock soon."""
+    subject = f"[SmartClassroom] Starting in 1 Hour: {assignment_title}"
+
+    try:
+        from datetime import datetime
+        dt_start = datetime.fromisoformat(start_at.replace("Z", ""))
+        dt_end = datetime.fromisoformat(end_at.replace("Z", ""))
+        formatted_start = dt_start.strftime("%B %d, %Y at %I:%M %p")
+        formatted_end = dt_end.strftime("%B %d, %Y at %I:%M %p")
+    except Exception:
+        formatted_start = start_at
+        formatted_end = end_at
+
+    html = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: auto; padding: 32px; background-color: #faf9f5; border: 1px solid #e8e6dc; border-radius: 12px; color: #141413;">
+        <div style="border-bottom: 2px solid #d97706; padding-bottom: 16px; margin-bottom: 24px;">
+            <h2 style="margin: 0; color: #141413; font-size: 20px; font-weight: 700;">SmartClassroom &bull; Starting in 1 Hour</h2>
+            <p style="margin: 4px 0 0 0; color: #7a7870; font-size: 13px;">University College of Jaffna &bull; Coursework Notice</p>
+        </div>
+
+        <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">Hello Student,</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #4d4c47; margin: 0 0 20px 0;">
+            This is an automated reminder that your assignment <strong>{assignment_title}</strong> for <strong>{subject_name}</strong> will unlock in <strong>approximately 1 hour</strong>.
+        </p>
+
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 24px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; width: 140px; vertical-align: top; border-bottom: 1px solid #f1f5f9;">Assignment</td>
+                    <td style="padding: 10px 12px; color: #141413; font-weight: 700; font-size: 15px; border-bottom: 1px solid #f1f5f9;">{assignment_title}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top; border-bottom: 1px solid #f1f5f9;">Subject</td>
+                    <td style="padding: 10px 12px; color: #141413; border-bottom: 1px solid #f1f5f9;">
+                        <span style="display: inline-block; background: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 13px;">{subject_name}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top; border-bottom: 1px solid #f1f5f9;">Unlocks At</td>
+                    <td style="padding: 10px 12px; color: #d97706; font-weight: 700; border-bottom: 1px solid #f1f5f9;">{formatted_start}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top;">Submission Deadline</td>
+                    <td style="padding: 10px 12px; color: #b91c1c; font-weight: 700;">{formatted_end}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px; border-radius: 6px; margin: 24px 0;">
+            <p style="margin: 0; font-size: 13px; color: #92400e; line-height: 1.5;">
+                <strong>Notice:</strong> The Question Paper and answer submission options will become accessible on your Student Dashboard as soon as the start time is reached.
+            </p>
+        </div>
+
+        <p style="color: #8c8a82; font-size: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e8e6dc;">
+            University College of Jaffna &bull; Academic Affairs<br>
+            Automatic notification generated by SmartClassroom Assignment Service.
+        </p>
     </div>
     """
     return send_email(student_emails, subject, html)
@@ -88,20 +203,63 @@ def send_deadline_reminder_email(
     assignment_title: str,
     subject_name: str,
     end_at: str,
-    hours_left: int
+    hours_left: int = 1
 ) -> bool:
-    """Notifies students who have pending submissions about upcoming deadline."""
-    subject = f"[Reminder] Deadline Approaching: {assignment_title}"
+    """Notifies students who have pending submissions 1 hour before the final deadline."""
+    subject = f"[SmartClassroom Urgent] Final Reminder: {assignment_title} Closes in 1 Hour"
+
+    try:
+        from datetime import datetime
+        dt_end = datetime.fromisoformat(end_at.replace("Z", ""))
+        formatted_end = dt_end.strftime("%B %d, %Y at %I:%M %p")
+    except Exception:
+        formatted_end = end_at
+
     html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #fecaca; border-radius: 8px;">
-        <h2 style="color: #b91c1c;">Assignment Deadline Reminder</h2>
-        <p>This is a reminder that the deadline for <strong>{assignment_title}</strong> in <strong>{subject_name}</strong> is in approximately <strong>{hours_left} hour(s)</strong>.</p>
-        <div style="background-color: #fff1f2; padding: 16px; border-left: 4px solid #ef4444; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Title:</strong> {assignment_title}</p>
-            <p style="margin: 0;"><strong>Final Deadline:</strong> {end_at}</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: auto; padding: 32px; background-color: #faf9f5; border: 1px solid #e8e6dc; border-radius: 12px; color: #141413;">
+        <div style="border-bottom: 2px solid #ef4444; padding-bottom: 16px; margin-bottom: 24px;">
+            <h2 style="margin: 0; color: #b91c1c; font-size: 20px; font-weight: 700;">SmartClassroom &bull; Final Submission Warning</h2>
+            <p style="margin: 4px 0 0 0; color: #7a7870; font-size: 13px;">University College of Jaffna &bull; Deadline Urgent Alert</p>
         </div>
-        <p>Please submit your work on SmartClassroom immediately. Late submissions will not be accepted.</p>
-        <p style="color: #64748b; font-size: 12px; margin-top: 24px;">University College of Jaffna &bull; SmartClassroom System</p>
+
+        <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">Hello Student,</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #4d4c47; margin: 0 0 20px 0;">
+            Our records indicate that you have <strong>not yet submitted</strong> your answer for <strong>{assignment_title}</strong> in <strong>{subject_name}</strong>. The submission portal will strictly close in <strong>approximately 1 hour</strong>.
+        </p>
+
+        <div style="background-color: #ffffff; border: 1px solid #fecaca; border-radius: 10px; padding: 20px; margin: 24px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; width: 140px; vertical-align: top; border-bottom: 1px solid #fef2f2;">Assignment</td>
+                    <td style="padding: 10px 12px; color: #141413; font-weight: 700; font-size: 15px; border-bottom: 1px solid #fef2f2;">{assignment_title}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top; border-bottom: 1px solid #fef2f2;">Subject</td>
+                    <td style="padding: 10px 12px; color: #141413; border-bottom: 1px solid #fef2f2;">
+                        <span style="display: inline-block; background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 13px;">{subject_name}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top; border-bottom: 1px solid #fef2f2;">Status</td>
+                    <td style="padding: 10px 12px; color: #dc2626; font-weight: 700; border-bottom: 1px solid #fef2f2;">Pending Submission</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; vertical-align: top;">Portal Closes At</td>
+                    <td style="padding: 10px 12px; color: #b91c1c; font-weight: 800; font-size: 15px;">{formatted_end}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 14px; border-radius: 6px; margin: 24px 0;">
+            <p style="margin: 0; font-size: 13px; color: #991b1b; line-height: 1.5;">
+                <strong>Strict Deadline Policy:</strong> Once the deadline passes, answer uploads will be completely disabled. Please log in immediately and submit your files to avoid a zero grade.
+            </p>
+        </div>
+
+        <p style="color: #8c8a82; font-size: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e8e6dc;">
+            University College of Jaffna &bull; Academic Affairs<br>
+            Automatic notification generated by SmartClassroom Assignment Service.
+        </p>
     </div>
     """
     return send_email(student_emails, subject, html)

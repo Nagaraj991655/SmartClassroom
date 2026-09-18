@@ -30,7 +30,10 @@ import {
   Sparkles,
   Search,
   Filter,
-  Calendar
+  Calendar,
+  BarChart2,
+  PieChart,
+  TrendingUp
 } from 'lucide-react';
 
 export default function TeacherDashboard({ user, onLogout }) {
@@ -44,6 +47,7 @@ export default function TeacherDashboard({ user, onLogout }) {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
+  const [homeChartMode, setHomeChartMode] = useState('all'); // 'all' | 'bar' | 'pie'
 
   // Create Assignment Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -62,6 +66,7 @@ export default function TeacherDashboard({ user, onLogout }) {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [submissionsData, setSubmissionsData] = useState(null);
   const [subsLoading, setSubsLoading] = useState(false);
+  const [submissionTab, setSubmissionTab] = useState('submitted'); // 'submitted' | 'pending'
 
   // Grade Modal
   const [showGradeModal, setShowGradeModal] = useState(false);
@@ -167,7 +172,12 @@ export default function TeacherDashboard({ user, onLogout }) {
       }
 
       const res = await api.teacherCreateAssignment(formData);
-      setMessage({ type: 'success', text: res.message });
+      const notified = res.notified_count || 0;
+      const subjectLabel = res.subject_name || '';
+      const notifyMsg = notified > 0
+        ? ` — ${notified} enrolled student${notified > 1 ? 's' : ''} in ${subjectLabel} notified via email.`
+        : '';
+      setMessage({ type: 'success', text: `${res.message}${notifyMsg}` });
       setShowCreateModal(false);
       setQuestionFile(null);
       loadData();
@@ -179,6 +189,7 @@ export default function TeacherDashboard({ user, onLogout }) {
   const handleOpenSubmissions = async (assignment) => {
     setSelectedAssignment(assignment);
     setShowSubmissionsModal(true);
+    setSubmissionTab('submitted');
     setSubsLoading(true);
     try {
       const data = await api.teacherGetSubmissions(assignment.assignment_id);
@@ -247,6 +258,20 @@ export default function TeacherDashboard({ user, onLogout }) {
     return e < now;
   }).length;
 
+  const overallTurnoutPct = totalEnrolled > 0
+    ? Math.min(100, Math.round((totalSubmissions / totalEnrolled) * 100))
+    : 0;
+
+  const totalQuestionViews = assignments.reduce(
+    (sum, a) => sum + (parseInt(a.question_view_count) || 0),
+    0
+  );
+
+  const totalQuestionDownloads = assignments.reduce(
+    (sum, a) => sum + (parseInt(a.question_download_count) || 0),
+    0
+  );
+
   const filteredAssignments = assignments.filter((ass) => {
     const q = assignmentSearch.toLowerCase().trim();
     const matchesSearch =
@@ -283,6 +308,90 @@ export default function TeacherDashboard({ user, onLogout }) {
       return { label: 'Closed', style: { background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' } };
     }
     return { label: 'Active', style: { background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' } };
+  };
+
+  const renderQuestionActivityBadge = (student) => {
+    const downloadCount = student.question_download_count || 0;
+    const viewCount = student.question_view_count || 0;
+
+    if (downloadCount > 0) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span
+            className="badge"
+            style={{
+              background: '#ecfdf5',
+              color: '#059669',
+              border: '1px solid #a7f3d0',
+              fontWeight: 600,
+              fontSize: '0.74rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              width: 'fit-content'
+            }}
+            title={`First downloaded: ${student.first_downloaded_at ? new Date(student.first_downloaded_at).toLocaleString() : 'N/A'}`}
+          >
+            <Download size={12} />
+            <span>Downloaded ({downloadCount}x)</span>
+          </span>
+          {student.last_downloaded_at && (
+            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+              Last: {new Date(student.last_downloaded_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    if (viewCount > 0) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span
+            className="badge"
+            style={{
+              background: '#eff6ff',
+              color: '#2563eb',
+              border: '1px solid #bfdbfe',
+              fontWeight: 600,
+              fontSize: '0.74rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              width: 'fit-content'
+            }}
+            title={`First viewed: ${student.first_viewed_at ? new Date(student.first_viewed_at).toLocaleString() : 'N/A'}`}
+          >
+            <Eye size={12} />
+            <span>Viewed ({viewCount}x)</span>
+          </span>
+          {student.last_viewed_at && (
+            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+              Last: {new Date(student.last_viewed_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <span
+        className="badge"
+        style={{
+          background: '#f1f5f9',
+          color: '#64748b',
+          border: '1px solid #e2e8f0',
+          fontSize: '0.74rem',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.3rem',
+          width: 'fit-content'
+        }}
+      >
+        <Clock size={12} />
+        <span>Not Opened Yet</span>
+      </span>
+    );
   };
 
   return (
@@ -576,6 +685,597 @@ export default function TeacherDashboard({ user, onLogout }) {
                     <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Sync latest submissions & grades</div>
                   </div>
                 </div>
+              </div>
+
+              {/* ═══════════════════════════════════════════════
+                  ANALYTICS & VISUAL CHARTS (PIE & BAR CHARTS)
+                 ═══════════════════════════════════════════════ */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
+                  padding: '1.35rem 1.5rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.25rem',
+                  marginBottom: '1.5rem'
+                }}
+              >
+                {/* Analytics Header & View Mode Switcher */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    borderBottom: '1px solid #f1f5f9',
+                    paddingBottom: '1rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                        color: '#2563eb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <TrendingUp size={20} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                        Coursework Analytics & Submission Visualizer
+                      </h3>
+                      <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                        Visual insights for student turnout, submission status, and question paper engagement
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Chart View Toggle (All, Bar Chart, Pie Chart) */}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      background: '#f1f5f9',
+                      padding: '3px',
+                      borderRadius: '10px',
+                      gap: '3px'
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setHomeChartMode('all')}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: homeChartMode === 'all' ? '#ffffff' : 'transparent',
+                        color: homeChartMode === 'all' ? '#0f172a' : '#64748b',
+                        fontWeight: homeChartMode === 'all' ? 700 : 500,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        boxShadow: homeChartMode === 'all' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      All Visuals
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHomeChartMode('bar')}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: homeChartMode === 'bar' ? '#ffffff' : 'transparent',
+                        color: homeChartMode === 'bar' ? '#0f172a' : '#64748b',
+                        fontWeight: homeChartMode === 'bar' ? 700 : 500,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        boxShadow: homeChartMode === 'bar' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <BarChart2 size={13} />
+                      <span>Bar Chart</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHomeChartMode('pie')}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: homeChartMode === 'pie' ? '#ffffff' : 'transparent',
+                        color: homeChartMode === 'pie' ? '#0f172a' : '#64748b',
+                        fontWeight: homeChartMode === 'pie' ? 700 : 500,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        boxShadow: homeChartMode === 'pie' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <PieChart size={13} />
+                      <span>Pie / Donut</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* ─────────────────────────────────────────────────────────────
+                    1. PIE / DONUT CHARTS (Submission Turnout & Schedule Status)
+                   ───────────────────────────────────────────────────────────── */}
+                {(homeChartMode === 'all' || homeChartMode === 'pie') && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '1.25rem'
+                    }}
+                  >
+                    {/* Donut Chart 1: Submission Completion Rate */}
+                    <div
+                      style={{
+                        background: '#f8fafc',
+                        borderRadius: '12px',
+                        padding: '1.2rem',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '1rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.94rem' }}>
+                          Overall Submission Turnout
+                        </div>
+                        <span
+                          className="badge"
+                          style={{
+                            background: overallTurnoutPct >= 75 ? '#ecfdf5' : '#eff6ff',
+                            color: overallTurnoutPct >= 75 ? '#059669' : '#2563eb',
+                            fontWeight: 700
+                          }}
+                        >
+                          {overallTurnoutPct}% Rate
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', padding: '0.5rem 0' }}>
+                        {/* SVG Donut Chart */}
+                        <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+                          <svg viewBox="0 0 160 160" width="150" height="150">
+                            {/* Background Track */}
+                            <circle
+                              cx="80"
+                              cy="80"
+                              r="60"
+                              fill="transparent"
+                              stroke="#e2e8f0"
+                              strokeWidth="18"
+                            />
+                            {totalEnrolled > 0 ? (
+                              <>
+                                {/* Segment 1: Completed Submissions (Green) */}
+                                <circle
+                                  cx="80"
+                                  cy="80"
+                                  r="60"
+                                  fill="transparent"
+                                  stroke="#10b981"
+                                  strokeWidth="18"
+                                  strokeDasharray={`${(totalSubmissions / totalEnrolled) * (2 * Math.PI * 60)} ${2 * Math.PI * 60}`}
+                                  strokeDashoffset="0"
+                                  transform="rotate(-90 80 80)"
+                                  strokeLinecap="round"
+                                  style={{ transition: 'stroke-dasharray 0.8s ease' }}
+                                />
+                                {/* Segment 2: Pending Submissions (Amber) */}
+                                {pendingEvaluations > 0 && (
+                                  <circle
+                                    cx="80"
+                                    cy="80"
+                                    r="60"
+                                    fill="transparent"
+                                    stroke="#f59e0b"
+                                    strokeWidth="18"
+                                    strokeDasharray={`${(pendingEvaluations / totalEnrolled) * (2 * Math.PI * 60)} ${2 * Math.PI * 60}`}
+                                    strokeDashoffset={-((totalSubmissions / totalEnrolled) * (2 * Math.PI * 60))}
+                                    transform="rotate(-90 80 80)"
+                                    strokeLinecap="round"
+                                    style={{ transition: 'stroke-dasharray 0.8s ease' }}
+                                  />
+                                )}
+                              </>
+                            ) : null}
+                          </svg>
+
+                          {/* Center Text */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>
+                              {overallTurnoutPct}%
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                              Turnout
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Legend */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', flex: 1, minWidth: '130px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
+                              <span style={{ color: '#475569' }}>Submitted</span>
+                            </div>
+                            <strong style={{ color: '#0f172a' }}>{totalSubmissions}</strong>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }} />
+                              <span style={{ color: '#475569' }}>Pending</span>
+                            </div>
+                            <strong style={{ color: '#0f172a' }}>{pendingEvaluations}</strong>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', borderTop: '1px dashed #cbd5e1', paddingTop: '0.45rem' }}>
+                            <span style={{ color: '#64748b' }}>Total Enrolled</span>
+                            <strong style={{ color: '#0f172a' }}>{totalEnrolled}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Donut Chart 2: Coursework Schedule Breakdown */}
+                    <div
+                      style={{
+                        background: '#f8fafc',
+                        borderRadius: '12px',
+                        padding: '1.2rem',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '1rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.94rem' }}>
+                          Assignment Status Distribution
+                        </div>
+                        <span className="badge badge-primary" style={{ fontWeight: 700 }}>
+                          {assignments.length} Total
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', padding: '0.5rem 0' }}>
+                        {/* SVG Donut Chart */}
+                        <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+                          <svg viewBox="0 0 160 160" width="150" height="150">
+                            <circle
+                              cx="80"
+                              cy="80"
+                              r="60"
+                              fill="transparent"
+                              stroke="#e2e8f0"
+                              strokeWidth="18"
+                            />
+                            {assignments.length > 0 ? (
+                              (() => {
+                                const total = assignments.length;
+                                const C = 2 * Math.PI * 60;
+                                const aDash = (activeAssignmentsCount / total) * C;
+                                const uDash = (upcomingAssignmentsCount / total) * C;
+                                const cDash = (closedAssignmentsCount / total) * C;
+                                return (
+                                  <>
+                                    {/* Active (Blue) */}
+                                    {activeAssignmentsCount > 0 && (
+                                      <circle
+                                        cx="80"
+                                        cy="80"
+                                        r="60"
+                                        fill="transparent"
+                                        stroke="#2563eb"
+                                        strokeWidth="18"
+                                        strokeDasharray={`${aDash} ${C}`}
+                                        strokeDashoffset="0"
+                                        transform="rotate(-90 80 80)"
+                                        strokeLinecap="round"
+                                      />
+                                    )}
+                                    {/* Upcoming (Purple) */}
+                                    {upcomingAssignmentsCount > 0 && (
+                                      <circle
+                                        cx="80"
+                                        cy="80"
+                                        r="60"
+                                        fill="transparent"
+                                        stroke="#8b5cf6"
+                                        strokeWidth="18"
+                                        strokeDasharray={`${uDash} ${C}`}
+                                        strokeDashoffset={-aDash}
+                                        transform="rotate(-90 80 80)"
+                                        strokeLinecap="round"
+                                      />
+                                    )}
+                                    {/* Closed (Slate) */}
+                                    {closedAssignmentsCount > 0 && (
+                                      <circle
+                                        cx="80"
+                                        cy="80"
+                                        r="60"
+                                        fill="transparent"
+                                        stroke="#94a3b8"
+                                        strokeWidth="18"
+                                        strokeDasharray={`${cDash} ${C}`}
+                                        strokeDashoffset={-(aDash + uDash)}
+                                        transform="rotate(-90 80 80)"
+                                        strokeLinecap="round"
+                                      />
+                                    )}
+                                  </>
+                                );
+                              })()
+                            ) : null}
+                          </svg>
+
+                          {/* Center Text */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>
+                              {assignments.length}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                              Tasks
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Legend */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', flex: 1, minWidth: '130px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2563eb' }} />
+                              <span style={{ color: '#475569' }}>Active / Open</span>
+                            </div>
+                            <strong style={{ color: '#0f172a' }}>{activeAssignmentsCount}</strong>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#8b5cf6' }} />
+                              <span style={{ color: '#475569' }}>Upcoming</span>
+                            </div>
+                            <strong style={{ color: '#0f172a' }}>{upcomingAssignmentsCount}</strong>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94a3b8' }} />
+                              <span style={{ color: '#475569' }}>Closed / Due</span>
+                            </div>
+                            <strong style={{ color: '#0f172a' }}>{closedAssignmentsCount}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─────────────────────────────────────────────────────────────
+                    2. BAR CHART (Assignment Submission Turnout & Progress)
+                   ───────────────────────────────────────────────────────────── */}
+                {(homeChartMode === 'all' || homeChartMode === 'bar') && (
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      padding: '1.25rem',
+                      border: '1px solid #e2e8f0',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '8px',
+                            background: '#eff6ff',
+                            color: '#2563eb',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <BarChart2 size={16} />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.98rem' }}>
+                            Coursework Submission Turnout by Assignment (Bar Visualizer)
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                            Compare student submissions received vs enrolled capacity for each coursework
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: '#64748b' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10b981' }} />
+                          &ge; 75%
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#3b82f6' }} />
+                          40-74%
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#f59e0b' }} />
+                          &lt; 40%
+                        </span>
+                      </div>
+                    </div>
+
+                    {assignments.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.88rem' }}>
+                        No assignments created yet to plot bar analytics.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {assignments.slice(0, 6).map((ass) => {
+                          const enrolled = parseInt(ass.total_enrolled_students) || 0;
+                          const submitted = parseInt(ass.total_submissions) || 0;
+                          const pct = enrolled > 0 ? Math.min(100, Math.round((submitted / enrolled) * 100)) : 0;
+                          const barColor = pct >= 75 ? '#10b981' : pct >= 40 ? '#3b82f6' : '#f59e0b';
+                          const isUpcoming = new Date(ass.start_at) > now;
+                          const isPast = new Date(ass.end_at) < now;
+
+                          return (
+                            <div
+                              key={ass.assignment_id}
+                              style={{
+                                background: '#ffffff',
+                                borderRadius: '10px',
+                                padding: '0.9rem 1.15rem',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.5rem'
+                              }}
+                            >
+                              {/* Assignment Title & Turnout Stats */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                  <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>
+                                    {ass.sub_name}
+                                  </span>
+                                  <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>
+                                    {ass.ass_name}
+                                  </strong>
+                                  {isUpcoming ? (
+                                    <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#92400e', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
+                                      🔒 Upcoming
+                                    </span>
+                                  ) : isPast ? (
+                                    <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#991b1b', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
+                                      Closed
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '0.7rem', background: '#dbeafe', color: '#1e40af', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
+                                      🟢 Active
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  <span style={{ fontSize: '0.82rem', color: '#475569', fontWeight: 600 }}>
+                                    {submitted} / {enrolled} Submissions
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: '0.82rem',
+                                      fontWeight: 800,
+                                      color: barColor,
+                                      minWidth: '42px',
+                                      textAlign: 'right'
+                                    }}
+                                  >
+                                    {pct}%
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Horizontal Bar Chart Track */}
+                              <div
+                                style={{
+                                  width: '100%',
+                                  height: '10px',
+                                  background: '#f1f5f9',
+                                  borderRadius: '5px',
+                                  overflow: 'hidden',
+                                  position: 'relative'
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${pct}%`,
+                                    height: '100%',
+                                    background: barColor,
+                                    borderRadius: '5px',
+                                    transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+                                  }}
+                                />
+                              </div>
+
+                              {/* Activity & Quick Action Footer */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                  <span>👁 {ass.question_view_count || 0} views</span>
+                                  <span>📥 {ass.question_download_count || 0} downloads</span>
+                                  <span>Deadline: {new Date(ass.end_at).toLocaleDateString()}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenSubmissions(ass)}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ padding: '2px 8px', height: '26px', fontSize: '0.72rem', gap: '0.25rem' }}
+                                >
+                                  <Eye size={12} />
+                                  <span>Track</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Assigned Subjects */}
@@ -1323,6 +2023,22 @@ export default function TeacherDashboard({ user, onLogout }) {
                 </div>
               </div>
 
+              <div style={{
+                margin: '0 1.5rem',
+                padding: '0.75rem 1rem',
+                background: '#eff6ff',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.6rem',
+                borderLeft: '3px solid #2563eb'
+              }}>
+                <Mail size={16} style={{ color: '#2563eb', flexShrink: 0, marginTop: '1px' }} />
+                <span style={{ fontSize: '0.78rem', color: '#1e3a8a', lineHeight: 1.45 }}>
+                  All students enrolled in the selected subject will be <strong>automatically notified via email</strong> with the assignment name, subject, and submission deadline upon publishing.
+                </span>
+              </div>
+
               <div className="modal-footer" style={{ gap: '0.75rem' }}>
                 <button
                   type="button"
@@ -1366,111 +2082,306 @@ export default function TeacherDashboard({ user, onLogout }) {
                 <div style={{ textAlign: 'center', padding: '2rem' }}>Loading submissions...</div>
               ) : submissionsData ? (
                 <div>
-                  {/* Status counts banner */}
-                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <div style={{ flex: 1, background: '#ecfdf5', padding: '0.75rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <UserCheck color="#10b981" size={20} />
-                      <div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#065f46' }}>{submissionsData.submitted_count}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#047857' }}>Submitted Students</div>
+                  {/* Question Paper Engagement Overview Banner */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '1rem',
+                    padding: '0.75rem 1rem',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.84rem', color: '#1e293b' }}>
+                      <FileText size={16} color="#2563eb" />
+                      <span>
+                        Question Paper Engagement:{' '}
+                        <strong style={{ color: '#059669' }}>{submissionsData.viewed_count || 0}</strong> of{' '}
+                        <strong>{submissionsData.total_enrolled}</strong> enrolled students have viewed or downloaded the question paper.
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: '#eff6ff',
+                      color: '#2563eb',
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: '9999px'
+                    }}>
+                      Student Access Tracking Active
+                    </span>
+                  </div>
+
+                  {/* Interactive Tab Switcher Banner */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '1rem',
+                    marginBottom: '1.5rem'
+                  }}>
+                    {/* Submitted Students Tab */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSubmissionTab('submitted')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSubmissionTab('submitted'); }}
+                      style={{
+                        background: submissionTab === 'submitted' ? '#ecfdf5' : '#f8fafc',
+                        border: submissionTab === 'submitted' ? '2px solid #10b981' : '2px solid #e2e8f0',
+                        padding: '1rem 1.25rem',
+                        borderRadius: 'var(--radius-md)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: submissionTab === 'submitted' ? '0 4px 12px rgba(16, 185, 129, 0.16)' : 'none',
+                        transform: submissionTab === 'submitted' ? 'translateY(-1px)' : 'none',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '10px',
+                          background: submissionTab === 'submitted' ? '#d1fae5' : '#e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#10b981'
+                        }}>
+                          <UserCheck size={22} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: submissionTab === 'submitted' ? '#065f46' : '#1e293b' }}>
+                            {submissionsData.submitted_count}
+                          </div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: submissionTab === 'submitted' ? '#047857' : '#64748b' }}>
+                            Submitted Students
+                          </div>
+                        </div>
                       </div>
+                      {submissionTab === 'submitted' ? (
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          background: '#10b981',
+                          color: '#ffffff',
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '9999px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em'
+                        }}>
+                          Active View
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>
+                          Click to view
+                        </span>
+                      )}
                     </div>
 
-                    <div style={{ flex: 1, background: '#fff1f2', padding: '0.75rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <UserX color="#ef4444" size={20} />
-                      <div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#991b1b' }}>{submissionsData.pending_count}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#b91c1c' }}>Pending Submissions</div>
+                    {/* Pending Submissions Tab */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSubmissionTab('pending')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSubmissionTab('pending'); }}
+                      style={{
+                        background: submissionTab === 'pending' ? '#fff1f2' : '#f8fafc',
+                        border: submissionTab === 'pending' ? '2px solid #ef4444' : '2px solid #e2e8f0',
+                        padding: '1rem 1.25rem',
+                        borderRadius: 'var(--radius-md)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: submissionTab === 'pending' ? '0 4px 12px rgba(239, 68, 68, 0.16)' : 'none',
+                        transform: submissionTab === 'pending' ? 'translateY(-1px)' : 'none',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '10px',
+                          background: submissionTab === 'pending' ? '#ffe4e6' : '#e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ef4444'
+                        }}>
+                          <UserX size={22} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: submissionTab === 'pending' ? '#991b1b' : '#1e293b' }}>
+                            {submissionsData.pending_count}
+                          </div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: submissionTab === 'pending' ? '#b91c1c' : '#64748b' }}>
+                            Pending Submissions
+                          </div>
+                        </div>
                       </div>
+                      {submissionTab === 'pending' ? (
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          background: '#ef4444',
+                          color: '#ffffff',
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '9999px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em'
+                        }}>
+                          Active View
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>
+                          Click to view
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Submitted Students Table */}
-                  <h4 style={{ marginBottom: '0.5rem' }}>Completed Submissions</h4>
-                  <table className="table" style={{ marginBottom: '1.5rem' }}>
-                    <thead>
-                      <tr>
-                        <th>Student</th>
-                        <th>Submitted At</th>
-                        <th>Submitted File</th>
-                        <th>Grade</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {submissionsData.submitted_students.length === 0 ? (
-                        <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No submissions yet.</td></tr>
-                      ) : (
-                        submissionsData.submitted_students.map((sub) => (
-                          <tr key={sub.submission_id}>
-                            <td>
-                              <div style={{ fontWeight: 600 }}>{sub.std_name}</div>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{sub.std_id}</span>
-                            </td>
-                            <td style={{ fontSize: '0.8rem' }}>
-                              {new Date(sub.submitted_at).toLocaleString()}
-                            </td>
-                            <td>
-                              <a
-                                href={api.fileUrl(sub.doc_url)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-secondary btn-sm"
-                              >
-                                <Download size={13} />
-                                <span>Answer File</span>
-                              </a>
-                            </td>
-                            <td>
-                              {sub.marks !== null ? (
-                                <span className="badge badge-success" style={{ fontSize: '0.85rem' }}>
-                                  {sub.marks} / 100
-                                </span>
-                              ) : (
-                                <span className="badge badge-warning">Ungraded</span>
-                              )}
-                            </td>
-                            <td>
-                              <button
-                                onClick={() => handleOpenGrade(sub)}
-                                className="btn btn-primary btn-sm"
-                              >
-                                <Award size={14} />
-                                <span>{sub.marks !== null ? 'Edit Grade' : 'Grade'}</span>
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                  {/* TAB 1: Completed Submissions Only */}
+                  {submissionTab === 'submitted' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#0f172a' }}>
+                          <CheckCircle size={18} color="#10b981" />
+                          <span>Completed Submissions ({submissionsData.submitted_students.length})</span>
+                        </h4>
+                        <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                          Click 'Grade' or 'Edit Grade' to evaluate student work
+                        </span>
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table" style={{ marginBottom: '0.5rem' }}>
+                          <thead>
+                            <tr>
+                              <th>Student</th>
+                              <th>Question Paper</th>
+                              <th>Submitted At</th>
+                              <th>Submitted File</th>
+                              <th>Grade</th>
+                              <th style={{ textAlign: 'right' }}>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {submissionsData.submitted_students.length === 0 ? (
+                              <tr>
+                                <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+                                  <UserCheck size={36} color="#cbd5e1" style={{ display: 'block', margin: '0 auto 0.5rem auto' }} />
+                                  <div style={{ fontWeight: 600, color: '#64748b' }}>No submissions received yet</div>
+                                  <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Enrolled students will appear here once they upload coursework.</div>
+                                </td>
+                              </tr>
+                            ) : (
+                              submissionsData.submitted_students.map((sub) => (
+                                <tr key={sub.submission_id}>
+                                  <td>
+                                    <div style={{ fontWeight: 600 }}>{sub.std_name}</div>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{sub.std_id}</span>
+                                  </td>
+                                  <td>
+                                    {renderQuestionActivityBadge(sub)}
+                                  </td>
+                                  <td style={{ fontSize: '0.8rem' }}>
+                                    {new Date(sub.submitted_at).toLocaleString()}
+                                  </td>
+                                  <td>
+                                    <a
+                                      href={api.fileUrl(sub.doc_url)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="btn btn-secondary btn-sm"
+                                    >
+                                      <Download size={13} />
+                                      <span>Answer File</span>
+                                    </a>
+                                  </td>
+                                  <td>
+                                    {sub.marks !== null ? (
+                                      <span className="badge badge-success" style={{ fontSize: '0.85rem' }}>
+                                        {sub.marks} / 100
+                                      </span>
+                                    ) : (
+                                      <span className="badge badge-warning">Ungraded</span>
+                                    )}
+                                  </td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenGrade(sub)}
+                                      className="btn btn-primary btn-sm"
+                                    >
+                                      <Award size={14} />
+                                      <span>{sub.marks !== null ? 'Edit Grade' : 'Grade'}</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Pending Students Table */}
-                  <h4 style={{ marginBottom: '0.5rem' }}>Pending Students (Not Yet Submitted)</h4>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Index Number</th>
-                        <th>Student Name</th>
-                        <th>Email</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {submissionsData.pending_students.length === 0 ? (
-                        <tr><td colSpan="4" style={{ textAlign: 'center', color: '#10b981' }}>All students have submitted!</td></tr>
-                      ) : (
-                        submissionsData.pending_students.map((st) => (
-                          <tr key={st.std_id}>
-                            <td><span className="badge badge-primary">{st.std_id}</span></td>
-                            <td style={{ fontWeight: 600 }}>{st.std_name}</td>
-                            <td>{st.email}</td>
-                            <td><span className="badge badge-danger">Pending</span></td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                  {/* TAB 2: Pending Students (Not Yet Submitted) Only */}
+                  {submissionTab === 'pending' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#0f172a' }}>
+                          <Clock size={18} color="#ef4444" />
+                          <span>Pending Students (Not Yet Submitted) ({submissionsData.pending_students.length})</span>
+                        </h4>
+                        <span style={{ fontSize: '0.76rem', color: '#b91c1c' }}>
+                          Coursework awaiting student submission
+                        </span>
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table" style={{ marginBottom: '0.5rem' }}>
+                          <thead>
+                            <tr>
+                              <th>Index Number</th>
+                              <th>Student Name</th>
+                              <th>Email</th>
+                              <th>Question Paper</th>
+                              <th style={{ textAlign: 'right' }}>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {submissionsData.pending_students.length === 0 ? (
+                              <tr>
+                                <td colSpan="5" style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#10b981' }}>
+                                  <CheckCircle size={36} color="#10b981" style={{ display: 'block', margin: '0 auto 0.5rem auto' }} />
+                                  <div style={{ fontWeight: 700, fontSize: '1rem', color: '#065f46' }}>All students have submitted!</div>
+                                  <div style={{ fontSize: '0.82rem', color: '#047857', marginTop: '0.25rem' }}>100% of enrolled students have turned in their coursework.</div>
+                                </td>
+                              </tr>
+                            ) : (
+                              submissionsData.pending_students.map((st) => (
+                                <tr key={st.std_id}>
+                                  <td><span className="badge badge-primary">{st.std_id}</span></td>
+                                  <td style={{ fontWeight: 600 }}>{st.std_name}</td>
+                                  <td>{st.email}</td>
+                                  <td>{renderQuestionActivityBadge(st)}</td>
+                                  <td style={{ textAlign: 'right' }}><span className="badge badge-danger">Pending</span></td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>

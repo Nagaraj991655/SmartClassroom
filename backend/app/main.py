@@ -13,6 +13,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger("smartclassroom.main")
 
+import asyncio
+from app.helper.reminder_service import check_and_send_assignment_reminders
+
+async def assignment_reminder_worker():
+    """Background worker that periodically checks and triggers assignment reminders every 60 seconds."""
+    logger.info("Assignment reminder background scheduler started.")
+    while True:
+        try:
+            await asyncio.to_thread(check_and_send_assignment_reminders)
+        except asyncio.CancelledError:
+            logger.info("Assignment reminder scheduler cancelled.")
+            break
+        except Exception as err:
+            logger.error(f"Error in assignment reminder worker: {err}")
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            break
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup tasks
@@ -20,9 +39,15 @@ async def lifespan(app: FastAPI):
     ensure_storage_directories()
     run_seed()
     logger.info("Storage directories and initial database seeds ready.")
+    reminder_task = asyncio.create_task(assignment_reminder_worker())
     yield
     # Shutdown tasks
     logger.info("Shutting down SmartClassroom application.")
+    reminder_task.cancel()
+    try:
+        await reminder_task
+    except asyncio.CancelledError:
+        pass
 
 app = FastAPI(
     title="SmartClassroom API",
