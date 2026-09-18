@@ -5,8 +5,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
-    # Database Configuration
-    DB_HOST: str = "localhost"
+    # Comma-separated browser origins allowed to call the API.
+    CORS_ORIGINS: str = "*"
+
+    # Local development uses DB_HOST_LOCAL; Vercel uses DB_HOST_ONLINE.
+    DB_HOST_LOCAL: str = "localhost"
+    DB_HOST_ONLINE: str = ""
     DB_PORT: int = 3306
     DB_USER: str = "root"
     DB_PASSWORD: str = ""

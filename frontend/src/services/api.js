@@ -70,7 +70,9 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     let errorMsg = "An unexpected error occurred.";
-    if (typeof data?.detail === "string") {
+    if (response.status === 503) {
+      errorMsg = "Database connection failed. Please contact the administrator.";
+    } else if (typeof data?.detail === "string") {
       errorMsg = data.detail;
     } else if (Array.isArray(data?.detail) && data.detail.length > 0) {
       errorMsg = data.detail[0]?.msg || "Validation error occurred.";

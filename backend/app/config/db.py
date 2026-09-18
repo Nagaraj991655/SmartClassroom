@@ -9,7 +9,11 @@ except ImportError:
     settings = None
 
 # Default MySQL connection parameters per SRS / Local setup
-DEFAULT_HOST = getattr(settings, "DB_HOST", "localhost") if settings else os.getenv("DB_HOST", "localhost")
+IS_VERCEL = os.getenv("VERCEL", "").lower() == "1"
+DEFAULT_HOST = (
+    getattr(settings, "DB_HOST_ONLINE", "") if IS_VERCEL
+    else getattr(settings, "DB_HOST_LOCAL", "localhost")
+) or ("localhost" if not IS_VERCEL else "")
 DEFAULT_PORT = getattr(settings, "DB_PORT", 3306) if settings else int(os.getenv("DB_PORT", 3306))
 DEFAULT_USER = getattr(settings, "DB_USER", "root") if settings else os.getenv("DB_USER", "root")
 DEFAULT_PASSWORD = getattr(settings, "DB_PASSWORD", "") if settings else os.getenv("DB_PASSWORD", "")
@@ -20,6 +24,9 @@ def get_db_connection():
     Creates and returns a MySQL database connection using PyMySQL.
     Connects to localhost with user 'root', empty password, and database 'smart_class'.
     """
+    if not DEFAULT_HOST:
+        raise RuntimeError("DB_HOST_ONLINE is required when running on Vercel")
+
     return pymysql.connect(
         host=DEFAULT_HOST,
         port=DEFAULT_PORT,

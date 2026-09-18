@@ -1,7 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import pymysql
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from app.config.settings import settings
 from app.helper.storage import ensure_storage_directories
 from app.model.seed_model import run_seed
 from app.routes import auth, admin, teacher, student, files
@@ -56,11 +59,34 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.exception_handler(pymysql.MySQLError)
+async def database_error_handler(request: Request, exc: pymysql.MySQLError):
+    logger.error("Database request failed: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Database connection failed. Check the cPanel MySQL host and Remote MySQL settings."
+        }
+    )
+
+@app.exception_handler(RuntimeError)
+async def database_configuration_error_handler(request: Request, exc: RuntimeError):
+    logger.error("Database configuration failed: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Database configuration failed. Set DB_HOST_ONLINE to the cPanel MySQL hostname."
+        }
+    )
+
+# Keep local development convenient while allowing a locked-down production origin.
+cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()] if settings else ["*"]
+
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials="*" not in cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
