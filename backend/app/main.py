@@ -42,15 +42,18 @@ async def lifespan(app: FastAPI):
     ensure_storage_directories()
     run_seed()
     logger.info("Storage directories and initial database seeds ready.")
-    reminder_task = asyncio.create_task(assignment_reminder_worker())
+    reminder_task = None
+    if os.getenv("VERCEL") != "1":
+        reminder_task = asyncio.create_task(assignment_reminder_worker())
     yield
     # Shutdown tasks
     logger.info("Shutting down SmartClassroom application.")
-    reminder_task.cancel()
-    try:
-        await reminder_task
-    except asyncio.CancelledError:
-        pass
+    if reminder_task:
+        reminder_task.cancel()
+        try:
+            await reminder_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title="SmartClassroom API",
