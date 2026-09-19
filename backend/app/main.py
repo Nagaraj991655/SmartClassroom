@@ -65,7 +65,7 @@ async def database_error_handler(request: Request, exc: pymysql.MySQLError):
     return JSONResponse(
         status_code=503,
         content={
-            "detail": "Database connection failed. Check the cPanel MySQL host and Remote MySQL settings."
+            "detail": f"Database connection error: {exc}"
         }
     )
 
@@ -75,7 +75,7 @@ async def database_configuration_error_handler(request: Request, exc: RuntimeErr
     return JSONResponse(
         status_code=503,
         content={
-            "detail": "Database configuration failed. Set DB_HOST_ONLINE to the cPanel MySQL hostname."
+            "detail": str(exc) if "Database host" in str(exc) else "Database configuration failed. Set DB_HOST in .env."
         }
     )
 

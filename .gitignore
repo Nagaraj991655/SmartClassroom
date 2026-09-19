@@ -38,7 +38,13 @@ out/
 .DS_Store
 Thumbs.db
 
-#Agent
+# Uploaded files and runtime storage
+backend/storage/*
+storage/*
+*.log
+
+# Agent & Vercel
 ai_work.md
 .vercel
 .env*
+
