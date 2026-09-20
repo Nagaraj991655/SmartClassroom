@@ -41,10 +41,14 @@ async def lifespan(app: FastAPI):
     # Startup tasks
     logger.info("Initializing SmartClassroom application...")
     ensure_storage_directories()
-    run_seed()
-    logger.info("Storage directories and initial database seeds ready.")
+    is_vercel = os.getenv("VERCEL") == "1"
+    if not is_vercel:
+        run_seed()
+        logger.info("Storage directories and initial database seeds ready.")
+    else:
+        logger.info("Storage directories ready; database seeding is managed outside Vercel cold starts.")
     reminder_task = None
-    if os.getenv("VERCEL") != "1":
+    if not is_vercel:
         reminder_task = asyncio.create_task(assignment_reminder_worker())
     yield
     # Shutdown tasks
