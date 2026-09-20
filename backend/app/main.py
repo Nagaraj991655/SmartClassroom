@@ -1,7 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import pymysql
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from app.config.settings import settings
 from app.helper.storage import ensure_storage_directories
 from app.model.seed_model import run_seed
 from app.routes import auth, admin, teacher, student, files
@@ -39,15 +42,18 @@ async def lifespan(app: FastAPI):
     ensure_storage_directories()
     run_seed()
     logger.info("Storage directories and initial database seeds ready.")
-    reminder_task = asyncio.create_task(assignment_reminder_worker())
+    reminder_task = None
+    if os.getenv("VERCEL") != "1":
+        reminder_task = asyncio.create_task(assignment_reminder_worker())
     yield
     # Shutdown tasks
     logger.info("Shutting down SmartClassroom application.")
-    reminder_task.cancel()
-    try:
-        await reminder_task
-    except asyncio.CancelledError:
-        pass
+    if reminder_task:
+        reminder_task.cancel()
+        try:
+            await reminder_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title="SmartClassroom API",
@@ -56,11 +62,34 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.exception_handler(pymysql.MySQLError)
+async def database_error_handler(request: Request, exc: pymysql.MySQLError):
+    logger.error("Database request failed: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": f"Database connection error: {exc}"
+        }
+    )
+
+@app.exception_handler(RuntimeError)
+async def database_configuration_error_handler(request: Request, exc: RuntimeError):
+    logger.error("Database configuration failed: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": str(exc) if "Database host" in str(exc) else "Database configuration failed. Set DB_HOST in .env."
+        }
+    )
+
+# Keep local development convenient while allowing a locked-down production origin.
+cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()] if settings else ["*"]
+
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials="*" not in cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

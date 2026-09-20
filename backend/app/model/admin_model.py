@@ -330,7 +330,7 @@ def delete_student(std_id: str) -> bool:
         return True
 
 # Overview Statistics
-def get_system_stats() -> Dict[str, int]:
+def get_system_stats() -> Dict[str, Any]:
     stats = {}
     stats["students_count"] = fetch_one("SELECT COUNT(*) as c FROM students")["c"]
     stats["teachers_count"] = fetch_one("SELECT COUNT(*) as c FROM teachers")["c"]
@@ -338,4 +338,73 @@ def get_system_stats() -> Dict[str, int]:
     stats["subjects_count"] = fetch_one("SELECT COUNT(*) as c FROM subjects")["c"]
     stats["assignments_count"] = fetch_one("SELECT COUNT(*) as c FROM assignments")["c"]
     stats["submissions_count"] = fetch_one("SELECT COUNT(*) as c FROM submissions")["c"]
+
+    # Assignment schedule distribution
+    stats["upcoming_assignments"] = fetch_one(
+        "SELECT COUNT(*) as c FROM assignments WHERE NOW() < start_at"
+    )["c"]
+    stats["ongoing_assignments"] = fetch_one(
+        "SELECT COUNT(*) as c FROM assignments WHERE NOW() >= start_at AND NOW() <= end_at"
+    )["c"]
+    stats["finished_assignments"] = fetch_one(
+        "SELECT COUNT(*) as c FROM assignments WHERE NOW() > end_at"
+    )["c"]
+
+    # Overall grading aggregates
+    stats["total_graded"] = fetch_one("SELECT COUNT(*) as c FROM grades")["c"]
+    stats["total_passed"] = fetch_one(
+        "SELECT COUNT(*) as c FROM grades WHERE marks >= 50"
+    )["c"]
+    stats["total_failed"] = fetch_one(
+        "SELECT COUNT(*) as c FROM grades WHERE marks < 50"
+    )["c"]
+
+    # Per-assignment detailed analytics
+    detail_sql = """
+        SELECT
+            a.assignment_id,
+            a.ass_name,
+            a.start_at,
+            a.end_at,
+            sub.sub_name,
+            t.teach_name,
+            CASE
+                WHEN NOW() < a.start_at THEN 'upcoming'
+                WHEN NOW() >= a.start_at AND NOW() <= a.end_at THEN 'ongoing'
+                ELSE 'finished'
+            END AS status,
+            (SELECT COUNT(*) FROM student_subjects ss WHERE ss.sub_id = a.sub_id) AS enrolled_count,
+            (SELECT COUNT(*) FROM submissions sm WHERE sm.assignment_id = a.assignment_id) AS submitted_count,
+            (SELECT COUNT(*) FROM submissions sm2
+                JOIN grades g ON sm2.submission_id = g.submission_id
+                WHERE sm2.assignment_id = a.assignment_id) AS graded_count,
+            (SELECT COUNT(*) FROM submissions sm3
+                JOIN grades g2 ON sm3.submission_id = g2.submission_id
+                WHERE sm3.assignment_id = a.assignment_id AND g2.marks >= 50) AS passed_count,
+            (SELECT COUNT(*) FROM submissions sm4
+                JOIN grades g3 ON sm4.submission_id = g3.submission_id
+                WHERE sm4.assignment_id = a.assignment_id AND g3.marks < 50) AS failed_count,
+            (SELECT ROUND(AVG(g4.marks), 1) FROM submissions sm5
+                JOIN grades g4 ON sm5.submission_id = g4.submission_id
+                WHERE sm5.assignment_id = a.assignment_id) AS average_marks
+        FROM assignments a
+        JOIN subjects sub ON a.sub_id = sub.sub_id
+        JOIN teachers t ON a.teach_id = t.teach_id
+        ORDER BY a.created_at DESC
+    """
+    details = fetch_all(detail_sql)
+    # Compute pending_count for each assignment
+    for d in details:
+        enrolled = d.get("enrolled_count") or 0
+        submitted = d.get("submitted_count") or 0
+        d["pending_count"] = max(0, enrolled - submitted)
+        # Convert Decimal average_marks to float for JSON serialization
+        if d.get("average_marks") is not None:
+            d["average_marks"] = float(d["average_marks"])
+        # Convert datetime objects to ISO strings for JSON serialization
+        for key in ("start_at", "end_at"):
+            if d.get(key) and hasattr(d[key], "isoformat"):
+                d[key] = d[key].isoformat()
+
+    stats["assessment_details"] = details
     return stats

@@ -1,0 +1,10 @@
+.vercel
+
+# Local secrets and Python runtime files
+.env*
+__pycache__/
+*.py[cod]
+my_venv/
+
+# Uploaded files are runtime data and must not be committed
+storage/*

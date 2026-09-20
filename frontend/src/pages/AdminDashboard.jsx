@@ -33,7 +33,12 @@ import {
   EyeOff,
   Filter,
   RotateCcw,
-  Calendar
+  Calendar,
+  BarChart2,
+  PieChart,
+  TrendingUp,
+  Award,
+  FileText
 } from 'lucide-react';
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -41,6 +46,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminChartMode, setAdminChartMode] = useState('all'); // 'all' | 'bar' | 'pie'
 
   // Core data states
   const [stats, setStats] = useState(null);
@@ -992,6 +998,541 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
                 </div>
               </div>
+
+              {/* ═══════════════════════════════════════════════════════════
+                  ASSESSMENT ANALYTICS & VISUAL CHARTS (PIE & BAR)
+                 ═══════════════════════════════════════════════════════════ */}
+              {stats && stats.assessment_details && (() => {
+                const details = stats.assessment_details || [];
+                const upcomingCount = stats.upcoming_assignments || 0;
+                const ongoingCount = stats.ongoing_assignments || 0;
+                const finishedCount = stats.finished_assignments || 0;
+                const totalAssessments = stats.assignments_count || 0;
+                const totalPassed = stats.total_passed || 0;
+                const totalFailed = stats.total_failed || 0;
+                const totalGraded = stats.total_graded || 0;
+                const totalSubmissions = stats.submissions_count || 0;
+                const pendingGrading = Math.max(0, totalSubmissions - totalGraded);
+                const passRate = totalGraded > 0 ? Math.round((totalPassed / totalGraded) * 100) : 0;
+
+                return (
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
+                      padding: '1.35rem 1.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1.25rem',
+                      marginBottom: '1.5rem'
+                    }}
+                  >
+                    {/* Analytics Header & View Mode Switcher */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                        borderBottom: '1px solid #f1f5f9',
+                        paddingBottom: '1rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div
+                          style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                            color: '#2563eb',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <TrendingUp size={20} />
+                        </div>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                            Assessment Analytics & Insights
+                          </h3>
+                          <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                            Institution-wide assessment schedules, pass/fail rates, and student performance
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Chart View Toggle */}
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          background: '#f1f5f9',
+                          padding: '3px',
+                          borderRadius: '10px',
+                          gap: '3px'
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setAdminChartMode('all')}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: adminChartMode === 'all' ? '#ffffff' : 'transparent',
+                            color: adminChartMode === 'all' ? '#0f172a' : '#64748b',
+                            fontWeight: adminChartMode === 'all' ? 700 : 500,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            boxShadow: adminChartMode === 'all' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          All Visuals
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdminChartMode('bar')}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: adminChartMode === 'bar' ? '#ffffff' : 'transparent',
+                            color: adminChartMode === 'bar' ? '#0f172a' : '#64748b',
+                            fontWeight: adminChartMode === 'bar' ? 700 : 500,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            boxShadow: adminChartMode === 'bar' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <BarChart2 size={13} />
+                          <span>Bar Chart</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdminChartMode('pie')}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: adminChartMode === 'pie' ? '#ffffff' : 'transparent',
+                            color: adminChartMode === 'pie' ? '#0f172a' : '#64748b',
+                            fontWeight: adminChartMode === 'pie' ? 700 : 500,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            boxShadow: adminChartMode === 'pie' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <PieChart size={13} />
+                          <span>Pie / Donut</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ─── DONUT CHARTS ─── */}
+                    {(adminChartMode === 'all' || adminChartMode === 'pie') && (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                          gap: '1.25rem'
+                        }}
+                      >
+                        {/* Donut 1: Assignment Schedule Distribution */}
+                        <div
+                          style={{
+                            background: '#f8fafc',
+                            borderRadius: '12px',
+                            padding: '1.2rem',
+                            border: '1px solid #e2e8f0',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '1rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.94rem' }}>
+                              Assessment Schedule Distribution
+                            </div>
+                            <span className="badge badge-primary" style={{ fontWeight: 700 }}>
+                              {totalAssessments} Total
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', padding: '0.5rem 0' }}>
+                            <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+                              <svg viewBox="0 0 160 160" width="150" height="150">
+                                <circle cx="80" cy="80" r="60" fill="transparent" stroke="#e2e8f0" strokeWidth="18" />
+                                {totalAssessments > 0 ? (() => {
+                                  const C = 2 * Math.PI * 60;
+                                  const oDash = (ongoingCount / totalAssessments) * C;
+                                  const uDash = (upcomingCount / totalAssessments) * C;
+                                  const fDash = (finishedCount / totalAssessments) * C;
+                                  return (
+                                    <>
+                                      {ongoingCount > 0 && (
+                                        <circle cx="80" cy="80" r="60" fill="transparent" stroke="#2563eb" strokeWidth="18"
+                                          strokeDasharray={`${oDash} ${C}`} strokeDashoffset="0"
+                                          transform="rotate(-90 80 80)" strokeLinecap="round"
+                                          style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+                                      )}
+                                      {upcomingCount > 0 && (
+                                        <circle cx="80" cy="80" r="60" fill="transparent" stroke="#8b5cf6" strokeWidth="18"
+                                          strokeDasharray={`${uDash} ${C}`} strokeDashoffset={-oDash}
+                                          transform="rotate(-90 80 80)" strokeLinecap="round"
+                                          style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+                                      )}
+                                      {finishedCount > 0 && (
+                                        <circle cx="80" cy="80" r="60" fill="transparent" stroke="#94a3b8" strokeWidth="18"
+                                          strokeDasharray={`${fDash} ${C}`} strokeDashoffset={-(oDash + uDash)}
+                                          transform="rotate(-90 80 80)" strokeLinecap="round"
+                                          style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+                                      )}
+                                    </>
+                                  );
+                                })() : null}
+                              </svg>
+                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                                <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{totalAssessments}</span>
+                                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Assessments</span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', flex: 1, minWidth: '130px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2563eb' }} />
+                                  <span style={{ color: '#475569' }}>Ongoing</span>
+                                </div>
+                                <strong style={{ color: '#0f172a' }}>{ongoingCount}</strong>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#8b5cf6' }} />
+                                  <span style={{ color: '#475569' }}>Upcoming</span>
+                                </div>
+                                <strong style={{ color: '#0f172a' }}>{upcomingCount}</strong>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94a3b8' }} />
+                                  <span style={{ color: '#475569' }}>Finished</span>
+                                </div>
+                                <strong style={{ color: '#0f172a' }}>{finishedCount}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Donut 2: Pass vs Fail Distribution */}
+                        <div
+                          style={{
+                            background: '#f8fafc',
+                            borderRadius: '12px',
+                            padding: '1.2rem',
+                            border: '1px solid #e2e8f0',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '1rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.94rem' }}>
+                              Overall Pass / Fail Rate
+                            </div>
+                            <span
+                              className="badge"
+                              style={{
+                                background: passRate >= 75 ? '#ecfdf5' : passRate >= 50 ? '#eff6ff' : '#fef2f2',
+                                color: passRate >= 75 ? '#059669' : passRate >= 50 ? '#2563eb' : '#dc2626',
+                                fontWeight: 700
+                              }}
+                            >
+                              {passRate}% Pass
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', padding: '0.5rem 0' }}>
+                            <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+                              <svg viewBox="0 0 160 160" width="150" height="150">
+                                <circle cx="80" cy="80" r="60" fill="transparent" stroke="#e2e8f0" strokeWidth="18" />
+                                {totalGraded > 0 ? (() => {
+                                  const C = 2 * Math.PI * 60;
+                                  const pDash = (totalPassed / totalGraded) * C;
+                                  const fDash = (totalFailed / totalGraded) * C;
+                                  return (
+                                    <>
+                                      {totalPassed > 0 && (
+                                        <circle cx="80" cy="80" r="60" fill="transparent" stroke="#10b981" strokeWidth="18"
+                                          strokeDasharray={`${pDash} ${C}`} strokeDashoffset="0"
+                                          transform="rotate(-90 80 80)" strokeLinecap="round"
+                                          style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+                                      )}
+                                      {totalFailed > 0 && (
+                                        <circle cx="80" cy="80" r="60" fill="transparent" stroke="#ef4444" strokeWidth="18"
+                                          strokeDasharray={`${fDash} ${C}`} strokeDashoffset={-pDash}
+                                          transform="rotate(-90 80 80)" strokeLinecap="round"
+                                          style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+                                      )}
+                                    </>
+                                  );
+                                })() : null}
+                              </svg>
+                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                                <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{passRate}%</span>
+                                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Pass Rate</span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', flex: 1, minWidth: '130px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
+                                  <span style={{ color: '#475569' }}>Passed (≥50)</span>
+                                </div>
+                                <strong style={{ color: '#0f172a' }}>{totalPassed}</strong>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
+                                  <span style={{ color: '#475569' }}>Failed (&lt;50)</span>
+                                </div>
+                                <strong style={{ color: '#0f172a' }}>{totalFailed}</strong>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', borderTop: '1px dashed #cbd5e1', paddingTop: '0.45rem' }}>
+                                <span style={{ color: '#64748b' }}>Pending Grade</span>
+                                <strong style={{ color: '#0f172a' }}>{pendingGrading}</strong>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                                <span style={{ color: '#64748b' }}>Total Graded</span>
+                                <strong style={{ color: '#0f172a' }}>{totalGraded}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ─── BAR CHART: Per-Assessment Breakdown ─── */}
+                    {(adminChartMode === 'all' || adminChartMode === 'bar') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.94rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <BarChart2 size={16} color="#2563eb" />
+                          Per-Assessment Student Performance
+                        </div>
+
+                        {details.length === 0 ? (
+                          <div style={{
+                            textAlign: 'center',
+                            padding: '2.5rem 1.5rem',
+                            background: '#f8fafc',
+                            borderRadius: '12px',
+                            border: '1px dashed #cbd5e1',
+                            color: '#64748b',
+                            fontSize: '0.88rem'
+                          }}>
+                            <FileText size={36} color="#cbd5e1" style={{ marginBottom: '0.75rem' }} />
+                            <div style={{ fontWeight: 600 }}>No assessments found</div>
+                            <div style={{ fontSize: '0.78rem', marginTop: '0.3rem' }}>Assessment data will appear here once teachers publish assignments.</div>
+                          </div>
+                        ) : (
+                          details.map((d) => {
+                            const enrolled = d.enrolled_count || 0;
+                            const passed = d.passed_count || 0;
+                            const failed = d.failed_count || 0;
+                            const pending = d.pending_count || 0;
+                            const avgMarks = d.average_marks != null ? d.average_marks : null;
+                            const total = enrolled || 1;
+                            const passPct = Math.round((passed / total) * 100);
+                            const failPct = Math.round((failed / total) * 100);
+                            const pendingPct = Math.round((pending / total) * 100);
+                            const statusColor = d.status === 'ongoing' ? '#2563eb' : d.status === 'upcoming' ? '#8b5cf6' : '#64748b';
+                            const statusBg = d.status === 'ongoing' ? '#eff6ff' : d.status === 'upcoming' ? '#f5f3ff' : '#f1f5f9';
+                            const statusLabel = d.status === 'ongoing' ? '🟢 Active' : d.status === 'upcoming' ? '🔒 Upcoming' : 'Completed';
+
+                            return (
+                              <div
+                                key={d.assignment_id}
+                                style={{
+                                  background: '#f8fafc',
+                                  borderRadius: '12px',
+                                  padding: '1rem 1.2rem',
+                                  border: '1px solid #e2e8f0',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '0.65rem'
+                                }}
+                              >
+                                {/* Assignment Header */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+                                    <span
+                                      className="badge"
+                                      style={{
+                                        background: '#dbeafe',
+                                        color: '#1e40af',
+                                        fontWeight: 600,
+                                        fontSize: '0.72rem',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      {d.sub_name}
+                                    </span>
+                                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {d.ass_name}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        fontWeight: 600,
+                                        color: statusColor,
+                                        background: statusBg,
+                                        padding: '3px 10px',
+                                        borderRadius: '20px',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                    {avgMarks != null && (
+                                      <span
+                                        className="badge"
+                                        style={{
+                                          background: avgMarks >= 75 ? '#ecfdf5' : avgMarks >= 50 ? '#eff6ff' : '#fef2f2',
+                                          color: avgMarks >= 75 ? '#059669' : avgMarks >= 50 ? '#2563eb' : '#dc2626',
+                                          fontWeight: 700,
+                                          fontSize: '0.72rem'
+                                        }}
+                                      >
+                                        Avg: {avgMarks}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Stacked Progress Bar */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
+                                    <span>{enrolled} enrolled students</span>
+                                    <span style={{ fontWeight: 600 }}>
+                                      {d.submitted_count || 0} / {enrolled} submitted
+                                    </span>
+                                  </div>
+                                  <div
+                                    style={{
+                                      width: '100%',
+                                      height: '22px',
+                                      borderRadius: '11px',
+                                      background: '#e2e8f0',
+                                      overflow: 'hidden',
+                                      display: 'flex',
+                                      position: 'relative'
+                                    }}
+                                  >
+                                    {passed > 0 && (
+                                      <div
+                                        style={{
+                                          width: `${passPct}%`,
+                                          height: '100%',
+                                          background: 'linear-gradient(90deg, #10b981, #34d399)',
+                                          transition: 'width 0.6s ease',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                      >
+                                        {passPct >= 12 && (
+                                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#fff' }}>
+                                            {passed} pass
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {failed > 0 && (
+                                      <div
+                                        style={{
+                                          width: `${failPct}%`,
+                                          height: '100%',
+                                          background: 'linear-gradient(90deg, #ef4444, #f87171)',
+                                          transition: 'width 0.6s ease',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                      >
+                                        {failPct >= 12 && (
+                                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#fff' }}>
+                                            {failed} fail
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {pending > 0 && (
+                                      <div
+                                        style={{
+                                          width: `${pendingPct}%`,
+                                          height: '100%',
+                                          background: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+                                          transition: 'width 0.6s ease',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                      >
+                                        {pendingPct >= 14 && (
+                                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#fff' }}>
+                                            {pending} pending
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Stats Footer */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', fontSize: '0.76rem', color: '#64748b' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                                    <span>{passed} passed</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
+                                    <span>{failed} failed</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
+                                    <span>{pending} pending</span>
+                                  </div>
+                                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.73rem' }}>
+                                    <Award size={12} color="#64748b" />
+                                    <span>by {d.teach_name}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Institution System Health Card */}
               <div className="card">

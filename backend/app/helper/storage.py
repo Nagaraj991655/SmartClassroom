@@ -12,8 +12,11 @@ ALLOWED_EXTENSIONS = {
 
 def ensure_storage_directories():
     """Ensures that both storage directories exist on disk."""
-    Path(settings.ASSIGNMENT_QUESTIONS_DIR).mkdir(parents=True, exist_ok=True)
-    Path(settings.STUDENT_SUBMISSIONS_DIR).mkdir(parents=True, exist_ok=True)
+    try:
+        Path(settings.ASSIGNMENT_QUESTIONS_DIR).mkdir(parents=True, exist_ok=True)
+        Path(settings.STUDENT_SUBMISSIONS_DIR).mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 
 def sanitize_filename(filename: str) -> str:
     """Removes potentially dangerous characters from filename."""
