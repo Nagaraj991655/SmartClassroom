@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 import pymysql
 from fastapi import FastAPI, Request
