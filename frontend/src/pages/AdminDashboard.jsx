@@ -2539,7 +2539,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     type="text"
                     required
                     className="form-control"
-                    placeholder="e.g. perinpamoorthytharanan2@gmail"
+                    placeholder="e.g. teacher@ucj.lk"
                     value={teacherForm.email}
                     onChange={(e) =>
                       setTeacherForm({ ...teacherForm, email: e.target.value })
