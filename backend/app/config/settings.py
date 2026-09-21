@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     # Storage Directories (uses /tmp on Vercel serverless environment)
     ASSIGNMENT_QUESTIONS_DIR: str = "/tmp/assignment_questions" if os.getenv("VERCEL") == "1" else "storage/assignment_questions"
     STUDENT_SUBMISSIONS_DIR: str = "/tmp/student_submissions" if os.getenv("VERCEL") == "1" else "storage/student_submissions"
+    # Vercel Blob token. When set, uploaded files are stored outside the serverless filesystem.
+    BLOB_READ_WRITE_TOKEN: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),

@@ -66,7 +66,7 @@ Open this file in VS Code's **Markdown Preview** to use the links. When viewing 
 | Database | MySQL 8.x or MariaDB | Normalized academic, assignment, submission, grade, and notification data |
 | Authentication | PyJWT, HTTP Bearer, bcrypt | Signed access tokens, password hashing, RBAC |
 | Email | Gmail SMTP with Google App Password | OTP, assignment, deadline, and grade notifications |
-| File handling | FastAPI multipart uploads, local storage or `/tmp` on Vercel | Question papers and student submissions |
+| File handling | FastAPI multipart uploads, local storage or Vercel Blob | Question papers and student submissions |
 | Hosting configuration | Render and Vercel manifests | API and frontend deployment |
 
 ## Architecture
@@ -518,7 +518,7 @@ Add `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `CO
 - `frontend/vercel.json` rewrites `/api/*` to the deployed backend URL and sends client-side routes to `index.html`.
 - `frontend` can be deployed as a Vite project with `npm run build` and `dist` as the output directory.
 - The root and `backend` Vercel manifests provide Python serverless entry points.
-- Vercel file storage is ephemeral; production deployments should use persistent object storage if uploaded documents must survive serverless instance replacement.
+- Create a Vercel Blob store from the Vercel project Storage tab, then add the generated `BLOB_READ_WRITE_TOKEN` environment variable for Production and redeploy. The backend uploads assignment questions and student submissions to Blob; local development continues to use `backend/storage`.
 
 ## Security and operational notes
 
@@ -527,7 +527,7 @@ Add `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `CO
 - Use a long random `JWT_SECRET` and set a restrictive `CORS_ORIGINS` value in production.
 - Password reset OTPs are short-lived and should be delivered only through a correctly configured SMTP account.
 - The current `/api/files/{category}/{filename}` route validates storage categories, sanitizes filenames, prevents traversal, and locks question papers until their start time, but it does not currently require a JWT dependency. Treat file URLs as discoverable and add role-aware authorization before using this route for sensitive production documents.
-- Development storage is local under `backend/storage`; Vercel defaults to `/tmp`, which is not durable.
+- Development storage is local under `backend/storage`; Vercel uploads require `BLOB_READ_WRITE_TOKEN` and are stored in Vercel Blob rather than the ephemeral `/tmp` filesystem.
 - Run the reminder worker in a single long-lived backend process. Serverless deployments should use a scheduled job or external queue for reliable reminders.
 - Do not use the seeded development accounts in a production environment.
 
