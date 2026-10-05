@@ -355,7 +355,6 @@ SmartClassroom/
 │   └── JF_ICT_24_20_SRS_Requirements_Baseline.pdf
 ├── render.yaml                  # Render API service definition
 ├── vercel.json                  # Root Vercel API definition
-└── ai_work.md                  # Detailed implementation activity log
 ```
 
 ## Local installation
