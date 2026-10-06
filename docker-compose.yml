@@ -1,0 +1,57 @@
+name: smartclassroom
+
+services:
+
+  db:
+    image: mysql:8.0
+
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: smart_class
+      MYSQL_USER: smartuser
+      MYSQL_PASSWORD: smartpass
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+
+    env_file:
+      - ./backend/.env
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+
+    environment:
+      VITE_API_BASE_URL: http://100.54.117.74:8000/api
+
+    ports:
+      - "80:5173"
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
