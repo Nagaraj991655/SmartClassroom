@@ -1,7 +1,7 @@
 .vercel
 
 # Local secrets and Python runtime files
-.env*
+
 __pycache__/
 *.py[cod]
 my_venv/
